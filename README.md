@@ -7,4 +7,4 @@
 * npm run build
 * npm start
 
-### Entry point file is ./src/app.ts
+#### Entry point file is ./src/app.ts
