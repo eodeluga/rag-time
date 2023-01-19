@@ -1,0 +1,21 @@
+{
+  "name": "create-typescript-app",
+  "version": "1.0.0",
+  "description": "",
+  "main": "./src/app.ts",
+  "scripts": {
+    "test": "mocha",
+    "build": "tsc",
+    "start": "node ./out/app.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "chai": "^*",
+    "mocha": "^*",
+    "typescript": "^*"
+  },
+  "devDependencies": {
+    "@tsconfig/node16": "^1.0.3"
+  }
+}
