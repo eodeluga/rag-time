@@ -8,3 +8,5 @@
 * npm start
 
 #### Entry point file is ./src/app.ts
+
+#### **Note**: You may want to edit the package.json if you want to target specific versions of the dependencies (especially for production).
