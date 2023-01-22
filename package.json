@@ -4,18 +4,19 @@
   "description": "",
   "main": "./src/app.ts",
   "scripts": {
-    "test": "mocha",
+    "test": "npm run build && mocha ./out/*.spec.js",
     "build": "tsc",
     "start": "node ./out/app.js"
   },
-  "author": "",
+  "author": "eodeluga@gmail.com",
   "license": "ISC",
-  "dependencies": {
+  "devDependencies": {
+    "@types/chai": "^*",
+    "@types/mocha": "^*",
+    "@types/node": "^18.11.18",
     "chai": "^*",
+    "chai-arrays": "^*",
     "mocha": "^*",
     "typescript": "^*"
-  },
-  "devDependencies": {
-    "@tsconfig/node16": "^*"
   }
 }
