@@ -9,27 +9,9 @@
       "console": "integratedTerminal",
       "request": "launch",
       "name": "Launch Program",
-      "program": "${workspaceFolder}/out/app.js",
-      "preLaunchTask": "build",
-      "outFiles": [
-        "${workspaceFolder}/out/**/*.js"
-      ],
-      "runtimeExecutable": "${env:NVM_BIN}/node",
+      "program": "${env:NVM_BIN}/npx",
+      "args": ["ts-node","src/app.ts"],
+      "runtimeExecutable": "${env:NVM_BIN}/node",      
     },
-    {
-      "type": "node",
-      "console": "integratedTerminal",
-      "request": "launch",
-      "name": "Launch Tests",
-      "program": "${workspaceFolder}/node_modules/mocha/bin/mocha.js",
-      "preLaunchTask": "build",
-      "outFiles": [
-        "${workspaceFolder}/out/**/*.js"
-      ],
-      "runtimeExecutable": "${env:NVM_BIN}/node",
-      "args": [
-        "${workspaceFolder}/out/**/*.spec.js"
-      ]
-    }
   ]
 }

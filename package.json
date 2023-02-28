@@ -2,21 +2,21 @@
   "name": "create-typescript-app",
   "version": "1.0.0",
   "description": "",
-  "main": "./src/app.ts",
+  "main": "src/app.ts",
   "scripts": {
-    "test": "npm run build && mocha ./out/*.spec.js",
-    "build": "tsc",
-    "start": "node ./out/app.js"
+    "build": "npx tsc",
+    "start": "npx ts-node src/app.ts",
+    "test": "npm run build && mocha"
   },
-  "author": "eodeluga@gmail.com",
+  "author": "eodeluga",
   "license": "ISC",
   "devDependencies": {
     "@types/chai": "^*",
     "@types/mocha": "^*",
     "@types/node": "^18.11.18",
     "chai": "^*",
-    "chai-arrays": "^*",
     "mocha": "^*",
+    "ts-node": "^*",
     "typescript": "^*"
   }
 }
