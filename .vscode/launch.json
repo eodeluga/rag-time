@@ -17,17 +17,9 @@
       "type": "node",
       "console": "integratedTerminal",
       "request": "launch",
-      "preLaunchTask": "build",
       "name": "Test Program",
       "program": "${env:NVM_BIN}/npx",
-      "args": [
-        "mocha", 
-        "--require", 
-        "ts-node/register", 
-        "--extensions", 
-        "ts,tsx", 
-        "./src/test/test.spec.ts"
-      ],
+      "args": ["ts-mocha", "src/test/test.spec.ts"],
       "runtimeExecutable": "${env:NVM_BIN}/node",
     },
   ]

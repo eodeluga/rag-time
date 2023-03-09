@@ -6,16 +6,16 @@
   "scripts": {
     "build": "npx tsc",
     "start": "npx ts-node src/app.ts",
-    "test": "npm run build && mocha"
+    "test": "npx ts-mocha src/test/test.spec.ts"
   },
   "author": "eodeluga",
   "license": "ISC",
   "devDependencies": {
     "@types/chai": "^*",
     "@types/mocha": "^*",
-    "@types/node": "^18.11.18",
+    "@types/node": "^*",
     "chai": "^*",
-    "mocha": "^*",
+    "ts-mocha": "^*",
     "ts-node": "^*",
     "typescript": "^*"
   }
