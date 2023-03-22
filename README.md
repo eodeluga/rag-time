@@ -4,8 +4,13 @@
 
 ## To use
 * npm install
-* npm run build
+----------
+
 * npm start
+
+  Or
+
+* npm test
 
 Entry point file is **src/app.ts**
 
