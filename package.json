@@ -1,0 +1,23 @@
+{
+  "name": "llamaindex-rag",
+  "version": "1.0.0",
+  "author": "eodeluga",
+  "module": "src/app.ts",
+  "dependencies": {
+    "dotenv": "^16.0.3",
+    "llamaindex": "^0.0.20",
+    "nanoid": "^5.0.1",
+    "readline-sync": "^1.4.10"
+  },
+  "devDependencies": {
+    "@types/node": "^18.17.10",
+    "@types/readline-sync": "^1.4.4",
+    "tsx": "^3.12.8"
+  },
+  "description": "",
+  "license": "ISC",
+  "scripts": {
+    "start": "tsx src/app.ts"
+  },
+  "type": "module"
+}
