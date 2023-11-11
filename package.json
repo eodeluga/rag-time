@@ -4,8 +4,8 @@
   "description": "",
   "main": "src/app.ts",
   "scripts": {
-    "start": "yarn ts-node src/app.ts",
-    "test": "yarn ts-mocha src/test/**/test.spec.ts"
+    "start": "yarn env-cmd ts-node src/app.ts",
+    "test": "yarn env-cmd ts-mocha src/test/**/test.spec.ts"
   },
   "author": "eodeluga",
   "license": "ISC",
@@ -14,6 +14,8 @@
     "@types/mocha": "^*",
     "@types/node": "^*",
     "chai": "^*",
+    "env-cmd": "^*",
+    "mocha": "^*",
     "ts-mocha": "^*",
     "ts-node": "^*",
     "typescript": "^*",
