@@ -5,7 +5,8 @@
   "main": "src/app.ts",
   "scripts": {
     "start": "yarn env-cmd ts-node src/app.ts",
-    "test": "yarn env-cmd ts-mocha src/test/**/test.spec.ts"
+    "test": "yarn env-cmd ts-mocha src/test/**/test.spec.ts",
+    "lint": "eslint \"{src,test}/**/*.ts\""
   },
   "author": "eodeluga",
   "license": "ISC",
@@ -13,12 +14,15 @@
     "@types/chai": "^*",
     "@types/mocha": "^*",
     "@types/node": "^*",
+    "@typescript-eslint/eslint-plugin": "^*",
+    "@typescript-eslint/parser": "^*",
     "chai": "^*",
     "env-cmd": "^*",
+    "eslint": "^*",
     "mocha": "^*",
     "ts-mocha": "^*",
     "ts-node": "^*",
     "typescript": "^*",
-    "yarn": "^1.22.19"
+    "yarn": "^*"
   }
 }

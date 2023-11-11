@@ -19,6 +19,8 @@
     "skipLibCheck": true,                        /* Skip type checking all .d.ts files. */
     /* Source Maps */
     "sourceMap": true,                          /* Create source map files for emitted JavaScript files. */ 
+    /* Advanced */
+    "allowJs": true,                            /* Allow JavaScript files to be compiled. */
   },
   "exclude": [                                  /* Specify an array of glob patterns to exclude from compilation. */
     "node_modules",

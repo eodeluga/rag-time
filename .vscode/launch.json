@@ -9,8 +9,8 @@
       "console": "integratedTerminal",
       "request": "launch",
       "name": "Launch Program",
-      "program": "${env:NVM_BIN}/npx",
-      "args": ["ts-node","src/app.ts"],
+      "program": "${env:NVM_BIN}/yarn",
+      "args": ["env-cmd", "ts-node","src/app.ts"],
       "runtimeExecutable": "${env:NVM_BIN}/node",      
     },
     {
@@ -18,8 +18,8 @@
       "console": "integratedTerminal",
       "request": "launch",
       "name": "Test Program",
-      "program": "${env:NVM_BIN}/npx",
-      "args": ["ts-mocha", "src/test/test.spec.ts"],
+      "program": "${env:NVM_BIN}/yarn",
+      "args": ["env-cmd", "ts-mocha", "test/**/test.spec.ts"],
       "runtimeExecutable": "${env:NVM_BIN}/node",
     },
   ]
