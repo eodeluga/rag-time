@@ -1,2 +1,2 @@
-const world: string = 'world!'
-console.log('Hello', world)
+const greet: string[] = ['Hello', 'world!']
+console.log(greet[0], ' ', greet[1])
