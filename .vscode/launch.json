@@ -5,22 +5,27 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "type": "node",
-      "console": "integratedTerminal",
-      "request": "launch",
       "name": "Launch Program",
-      "program": "${env:NVM_BIN}/yarn",
-      "args": ["env-cmd", "ts-node","src/app.ts"],
-      "runtimeExecutable": "${env:NVM_BIN}/node",      
+      "type": "bun",
+      "request": "launch",
+      "program": "src/app.ts",
+      "strictEnv": false,
+      "watchMode": false,
+      "stopOnEntry": false,
+      "noDebug": false, 
+      "internalConsoleOptions": "openOnSessionStart"    
     },
     {
-      "type": "node",
-      "console": "integratedTerminal",
-      "request": "launch",
       "name": "Test Program",
-      "program": "${env:NVM_BIN}/yarn",
-      "args": ["env-cmd", "ts-mocha", "test/**/test.spec.ts"],
-      "runtimeExecutable": "${env:NVM_BIN}/node",
+      "type": "bun",
+      "request": "launch",
+      "program": "node_modules/mocha/lib/cli/cli.js",
+      "args": ["test/*"],
+      "strictEnv": false,
+      "watchMode": false,
+      "stopOnEntry": false,
+      "noDebug": false, 
+      "internalConsoleOptions": "openOnSessionStart" 
     },
   ]
 }
