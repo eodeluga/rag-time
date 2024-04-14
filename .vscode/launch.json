@@ -18,9 +18,9 @@
     {
       "name": "Test Program",
       "type": "bun",
+      "args": ["test"],
       "request": "launch",
-      "program": "node_modules/mocha/lib/cli/cli.js",
-      "args": ["test/*"],
+      "program": "src/test/*.spec.ts",
       "strictEnv": false,
       "watchMode": false,
       "stopOnEntry": false,

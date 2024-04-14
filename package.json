@@ -5,24 +5,15 @@
   "main": "src/app.ts",
   "scripts": {
     "start": "bun run src/app.ts",
-    "tests": "bun run --bun node_modules/mocha/lib/cli/cli.js test/**/test.spec.ts",
+    "tests": "bun test test/*.spec.ts",
     "lint": "eslint \"{src,test}/**/*.ts\""
   },
   "author": "eodeluga",
   "license": "ISC",
   "devDependencies": {
-    "@types/chai": "4.3.4",
-    "@types/chai-arrays": "^2.0.3",
-    "@types/chai-as-promised": "^7.1.5",
-    "@types/mocha": "^10.0.1",
-    "@types/node": "^20.10.7",
+    "@types/bun": "^1.0.12",
     "@typescript-eslint/eslint-plugin": "^5.44.0",
     "@typescript-eslint/parser": "^5.44.0",
-    "chai": "4.3.7",
-    "chai-arrays": "^2.2.0",
-    "chai-as-promised": "^7.1.1",
-    "env-cmd": "^10.1.0",
-    "eslint": "^8.28.0",
-    "mocha": "^10.2.0"
+    "eslint": "^8.28.0"
   }
 }
