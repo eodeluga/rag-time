@@ -7,12 +7,10 @@
     {
       "name": "Launch Program",
       "type": "bun",
+      "args": ["run"],
       "request": "launch",
       "program": "src/app.ts",
-      "strictEnv": false,
-      "watchMode": false,
       "stopOnEntry": false,
-      "noDebug": false, 
       "internalConsoleOptions": "openOnSessionStart"    
     },
     {
@@ -21,10 +19,7 @@
       "args": ["test"],
       "request": "launch",
       "program": "src/test/*.spec.ts",
-      "strictEnv": false,
-      "watchMode": false,
       "stopOnEntry": false,
-      "noDebug": false, 
       "internalConsoleOptions": "openOnSessionStart" 
     },
   ]
