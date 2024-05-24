@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "bun run src/app.ts",
-    "tests": "bun test test/*.spec.ts",
+    "test": "bun test test/*.spec.ts",
     "lint": "eslint \"{src,test}/**/*.ts\""
   },
   "author": "eodeluga",
