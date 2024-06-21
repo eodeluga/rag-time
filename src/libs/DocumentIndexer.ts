@@ -1,6 +1,7 @@
 import { Document, VectorStoreIndex, storageContextFromDefaults } from 'llamaindex';
 import { nanoid } from 'nanoid';
 import path from 'path';
+import fs from 'fs';
 
 type VectorStoreIndexStorage = {
   index: VectorStoreIndex;
@@ -46,6 +47,15 @@ export class DocumentIndexer {
   async indexDocuments(): Promise<VectorStoreIndexStorage>  {
     const documentsData = await this.loadDocumentData();
     const documents = documentsData.map(([document]) => new Document(document));
+    // Create persistDir if it doesn't exist
+    if (!fs.existsSync(this.persistDir)) {
+      fs.mkdir(this.persistDir, (err) => {
+        if (err) {
+          throw new Error(`Error creating directory: ${err}`);
+        } 
+      });
+    }
+    
     const index = await VectorStoreIndex.fromDocuments(documents, {
       storageContext: await storageContextFromDefaults({
         persistDir: this.persistDir,
