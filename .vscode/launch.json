@@ -1,0 +1,35 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Bun Run",
+      "type": "bun",
+      "args": ["run"],
+      "request": "launch",
+      "program": "src/app.ts",
+      "stopOnEntry": false,
+      "internalConsoleOptions": "openOnSessionStart"    
+    },
+    {
+      "name": "Node Run",
+      "type": "node",
+      "program": "node_modules/tsx/dist/cli.cjs",
+      "args": ["src/app.ts"],
+      "request": "launch",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "openOnSessionStart"
+    },
+    {
+      "name": "Test Program",
+      "type": "bun",
+      "args": ["test"],
+      "request": "launch",
+      "program": "src/test/*.spec.ts",
+      "stopOnEntry": false,
+      "internalConsoleOptions": "openOnSessionStart" 
+    },
+  ]
+}
