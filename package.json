@@ -1,0 +1,22 @@
+{
+  "name": "rag-time",
+  "version": "1.0.0",
+  "description": "",
+  "module": "src/app.ts",
+  "type": "module",
+  "scripts": {
+    "start": "bun run src/app.ts",
+    "test": "bun test test/*.spec.ts",
+    "lint": "eslint \"{src,test}/**/*.ts\""
+  },
+  "author": "eodeluga",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/bun": "^1.0.12",
+    "@types/node": "^20.12.12",
+    "@typescript-eslint/eslint-plugin": "^5.44.0",
+    "@typescript-eslint/parser": "^5.44.0",
+    "eslint": "^8.28.0",
+    "tsx": "^4.16.2"
+  }
+}
