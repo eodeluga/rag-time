@@ -1,7 +1,7 @@
 import OpenAI from 'openai'
 import type { DocumentChunk } from '@@models/DocumentChunk'
 import type { ChatCompletionTool } from 'openai/resources/index.mjs'
-import { SuccessTextChunkerResponseSchema } from 'schemas/textChunker.schema'
+import { SuccessTextChunkerResponseSchema } from '@@schemas/textChunker.schema'
 
 const textChunkFunction = {
   type: 'function',

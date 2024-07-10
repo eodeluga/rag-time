@@ -1,5 +1,5 @@
 import dotenv from 'dotenv'
-import { chunkTextWithLlm } from '@@utils/textChunker'
+import { chunkTextWithLlm } from '@@utils/textChunker.util'
 
 dotenv.config();
 
