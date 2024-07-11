@@ -1,7 +1,7 @@
 import OpenAI from 'openai'
 import type { DocumentChunk } from '@@models/DocumentChunk'
 import type { ChatCompletionTool } from 'openai/resources/index.mjs'
-import { SuccessTextChunkerResponseSchema } from '@@schemas/textChunker.schema'
+import { TextChunkerResponseValidator } from '@@validators/textChunker.validator'
 
 const textChunkFunction = {
   type: 'function',
@@ -36,15 +36,17 @@ const textChunkFunction = {
   },
 } satisfies ChatCompletionTool
 
+const createPrompt = ((text: string) => (
+  `${text}\n\n` +
+  'Process the above text into a series of dynamically sized overlapping chunks and return a JSON array as the result'
+))
+
+const normaliseText = ((text: string) => text.replace(/[\n.,/#!$%^&*;:{}=\-_`~()]/g, '').toLowerCase())
+
 async function chunkTextWithLlm(text: string) {
   const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
   })
-  
-  const prompt = ((text: string) => (
-    `${text}\n\n` +
-    'Process the above text into a series of dynamically sized overlapping chunks and return a JSON array as the result'
-  ))
   
   const response = await openai.chat.completions.create({
     model: 'gpt-3.5-turbo',
@@ -54,18 +56,24 @@ async function chunkTextWithLlm(text: string) {
     tool_choice: 'auto',
     messages: [
       { role: 'system', content: 'You process text into chunks for RAG purposes' },
-      { role: 'user', content: prompt(text) },
+      { role: 'user', content: createPrompt(text) },
     ],
   })
   
-  const funcArgs = response.choices[0].message?.tool_calls
+  const textChunkFunctionArgs = response.choices[0].message?.tool_calls
     ? JSON.parse(response.choices[0].message.tool_calls[0].function.arguments)
     : []
     
   try {
-    return SuccessTextChunkerResponseSchema.parse(
-      funcArgs
+    const validatedResponse = TextChunkerResponseValidator.parse(
+      textChunkFunctionArgs
     ).chunks satisfies DocumentChunk[]
+    
+    return validatedResponse.map((chunk) => ({
+      index: chunk.index,
+      text: normaliseText(chunk.text),
+      summary: normaliseText(chunk.summary),
+    }))
   } catch (error) {
     console.error('Error parsing response:', error)
   }

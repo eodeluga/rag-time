@@ -2,10 +2,10 @@ import { nanoid } from 'nanoid'
 import type { VectorChunk } from '@@models/VectorChunk'
 import { QdrantDbConnection } from '@@utils/connectionManager.util'
 
-export class DocumentIndexService {
+export class DocumentIndexingService {
   private client = QdrantDbConnection
   private collectionId = nanoid()
-    
+   
   async updateDocumentVectorChunks(chunks: VectorChunk[]) {
     const qdrantPoints = chunks.map((chunk) => ({
       id: chunk.index,
@@ -17,9 +17,14 @@ export class DocumentIndexService {
       },
     }))
     
-    await this.client.upsert(this.collectionId, {
+    const result = await this.client.upsert(this.collectionId, {
       points: qdrantPoints,
     })
+    
+    return {
+      collectionId: this.collectionId,
+      status: result.status,
+    }
   }
   
   // public static async searchDocumentChunks(query: string, k: number) {
