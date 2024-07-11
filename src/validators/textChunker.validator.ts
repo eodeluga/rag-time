@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-export const SuccessTextChunkerResponseSchema = z.object({
+export const TextChunkerResponseValidator = z.object({
   chunks: z.array(z.object({
     index: z.number(),
     text: z.string(),

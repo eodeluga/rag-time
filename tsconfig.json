@@ -28,9 +28,9 @@
     "baseUrl": "src",
     "paths": {
       "@@models/*": ["models/*"],
-      "@@schemas/*": ["schemas/*"],
       "@@services/*": ["services/*"],
       "@@utils/*": ["utils/*"],
+      "@@validators/*": ["validators/*"],
     },
   }
 }
