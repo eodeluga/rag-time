@@ -27,6 +27,7 @@
     // Aliases
     "baseUrl": "src",
     "paths": {
+      "@@functions/*": ["functions/*"],
       "@@models/*": ["models/*"],
       "@@services/*": ["services/*"],
       "@@utils/*": ["utils/*"],
