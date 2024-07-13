@@ -1,7 +1,7 @@
 import type { DocumentChunk } from '@@models/DocumentChunk'
 import type OpenAI from 'openai'
 
-export class DocumentChunkEmbeddingService {
+export class ChunkEmbeddingService {
   private llm: OpenAI
   
   constructor(llm: OpenAI) {
@@ -12,7 +12,7 @@ export class DocumentChunkEmbeddingService {
     
     const textChunks = chunks.map((chunk) => [chunk.summary, chunk.text])
     return this.llm.embeddings.create({
-      model: 'text-davinci-003',
+      model: 'text-embedding-ada-002',
       input: textChunks,
     })
   }
