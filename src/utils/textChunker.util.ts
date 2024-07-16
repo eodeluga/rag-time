@@ -3,6 +3,8 @@ import type { DocumentChunk } from '@@models/DocumentChunk'
 import { TextChunkerResponseValidator } from '@@validators/textChunker.validator'
 import { textChunkFunction } from '@@functions/textChunk.function'
 import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters'
+import { sentenceSplitterFunction } from '@@functions/sentenceSplitter.function'
+import { SentenceSplitterResponseValidator } from '@@validators/sentenceSplitter.validator'
 
 const createPrompt = ((text: string) => (
   `Text to chunk: ${text}\n\n` +
@@ -11,51 +13,80 @@ const createPrompt = ((text: string) => (
 ))
 
 const normaliseText = ((text: string) => text
-  .replace(/[\n.,/#!$%^&*;:{}=\-_`~()]/g, ' ')
+  .replace(/[\n.,/#!$%^&*;:{}=\-_`~()]/g, '')
   .toLowerCase()
-  .replaceAll(/\s+/g, ' '))
+)
 
 async function chunkTextWithLlm(text: string) {
   const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
   })
   
-  // Split text into sentences on full stops but not if sentence is 
-  const recursiveCharacterSplitter = new RecursiveCharacterTextSplitter({
-    chunkSize: 50,
-    chunkOverlap: 25,
-  })
-  const chunks = await recursiveCharacterSplitter.splitText(normaliseText(text))
+
+  
+  // const response = await openai.chat.completions.create({
+  //   model: 'gpt-3.5-turbo',
+  //   response_format: { type: 'json_object' },
+  //   n: 1,
+  //   tools: [textChunkFunction],
+  //   tool_choice: 'auto',
+  //   messages: [
+  //     { role: 'system', content: 'You process text into chunks for RAG purposes' },
+  //     { role: 'user', content: createPrompt(text) },
+  //   ],
+  // })
   
   const response = await openai.chat.completions.create({
     model: 'gpt-3.5-turbo',
     response_format: { type: 'json_object' },
     n: 1,
-    tools: [textChunkFunction],
+    tools: [sentenceSplitterFunction],
     tool_choice: 'auto',
     messages: [
-      { role: 'system', content: 'You process text into chunks for RAG purposes' },
-      { role: 'user', content: createPrompt(text) },
+     { role: 'system', content: 'You are a helpful assistant.' },
+     { 
+      role: 'user',
+      content: `Split following text into semantically correct sentences: "${text}"` 
+        + '\n\nReturn the sentences as JSON array'
+     },
     ],
   })
   
-  const textChunkFunctionArgs = response.choices[0].message?.tool_calls
+  const functionResponse = SentenceSplitterResponseValidator.parse(
+    response.choices[0].message?.tool_calls
     ? JSON.parse(response.choices[0].message.tool_calls[0].function.arguments)
     : []
+  )
+  
+  const recursiveCharacterSplitter = new RecursiveCharacterTextSplitter({
+    chunkSize: 50,
+    chunkOverlap: 25,
+  })
+  const sentences = await recursiveCharacterSplitter.splitText(
+    functionResponse.sentences.map((sentence) => normaliseText(sentence)).join()
+  )
+  
+  console.log(sentences)
+  
+  
+  
+  
+  
+  
+  
+  // try {
+  //   const validatedResponse = TextChunkerResponseValidator.parse(
+  //     textChunkFunctionArgs
+  //   ).chunks satisfies DocumentChunk[]
     
-  try {
-    const validatedResponse = TextChunkerResponseValidator.parse(
-      textChunkFunctionArgs
-    ).chunks satisfies DocumentChunk[]
-    
-    return validatedResponse.map((chunk) => ({
-      index: chunk.index,
-      text: normaliseText(chunk.text),
-      summary: normaliseText(chunk.summary),
-    }))
-  } catch (error) {
-    console.error('Error parsing response:', error)
-  }
+  //   return validatedResponse.map((chunk) => ({
+  //     index: chunk.index,
+  //     text: normaliseText(chunk.text),
+  //     summary: normaliseText(chunk.summary),
+  //   }))
+  // } catch (error) {
+  //   console.error('Error parsing response:', error)
+  // }
 }
 
 export { chunkTextWithLlm }
