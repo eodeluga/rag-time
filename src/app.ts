@@ -1,6 +1,7 @@
 import dotenv from 'dotenv'
 import { chunkTextWithLlm } from '@@utils/textChunker.util'
 
+
 dotenv.config();
 
 (async () => {
