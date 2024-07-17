@@ -13,8 +13,10 @@ const createPrompt = ((text: string) => (
 ))
 
 const normaliseText = ((text: string) => text
-  .replace(/[\n.,/#!$%^&*;:{}=\-_`~()]/g, '')
   .toLowerCase()
+  .replace(/[^\w\s]/g, '')
+  .replace(/\s+/g, ' ')
+  .trim()
 )
 
 async function chunkTextWithLlm(text: string) {
@@ -43,25 +45,26 @@ async function chunkTextWithLlm(text: string) {
     tools: [sentenceSplitterFunction],
     tool_choice: 'auto',
     messages: [
-     { role: 'system', content: 'You are a helpful assistant.' },
-     { 
-      role: 'user',
-      content: `Split following text into semantically correct sentences: "${text}"` 
-        + '\n\nReturn the sentences as JSON array'
-     },
+      { role: 'system', content: 'You are a helpful assistant.' },
+      { 
+        role: 'user',
+        content: `Split following text into semantically correct sentences: "${text}"` 
+          + '\n\nReturn the sentences as JSON array',
+      },
     ],
   })
   
   const functionResponse = SentenceSplitterResponseValidator.parse(
     response.choices[0].message?.tool_calls
-    ? JSON.parse(response.choices[0].message.tool_calls[0].function.arguments)
-    : []
+      ? JSON.parse(response.choices[0].message.tool_calls[0].function.arguments)
+      : []
   )
   
   const recursiveCharacterSplitter = new RecursiveCharacterTextSplitter({
     chunkSize: 50,
     chunkOverlap: 25,
   })
+  
   const sentences = await recursiveCharacterSplitter.splitText(
     functionResponse.sentences.map((sentence) => normaliseText(sentence)).join()
   )
