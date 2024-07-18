@@ -1,7 +1,6 @@
 import { nanoid } from 'nanoid'
 import { QdrantDbConnection } from '@@utils/connectionManager.util'
 import type { TextEmbedding } from '@@models/TextEmbedding'
-import { Distance, Vector, VectorParams } from '@qdrant/qdrant-js/grpc'
 
 export class TextIndexingService {
   private client = QdrantDbConnection
@@ -19,15 +18,20 @@ export class TextIndexingService {
       },
     }))
     
-    const collectionExists = await this.client.collectionExists(this.collectionId)
+    const {exists: collectionExists } = await this.client.collectionExists(this.collectionId)
     
     if (!collectionExists) {
-      const collectionConfig = {
-        size: qdrantPoints[0].vector.length,
-        distance: Distance.Cosine,
-      }
-      
-      await this.client.createCollection(this.collectionId, {})
+      console.log('Creating collection')
+      await this.client.createCollection(this.collectionId, {
+        vectors: {
+          size: qdrantPoints[0].vector.length,
+          distance: 'Cosine',
+        },
+        optimizers_config: {
+          default_segment_number: 2,
+        },
+        replication_factor: 2,
+      })
     }
     
     const result = await this.client.upsert(this.collectionId, {
@@ -39,10 +43,4 @@ export class TextIndexingService {
       status: result.status,
     }
   }
-  
-  // public static async searchDocumentChunks(query: string, k: number) {
-  //   const qdrant = await this.getQdrantClient()
-  //   const { ids } = await qdrant.search({query, k})
-  //   return ids
-  // }
 }
