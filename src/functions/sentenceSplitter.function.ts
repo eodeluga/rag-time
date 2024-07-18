@@ -1,4 +1,4 @@
-import type { ChatCompletionTool } from 'openai/resources/index.mjs';
+import type { ChatCompletionTool } from 'openai/resources/index.mjs'
 
 export const sentenceSplitterFunction = {
   type: 'function',
@@ -10,12 +10,12 @@ export const sentenceSplitterFunction = {
       properties: {
         sentences: {
           type: 'array',
-            items: {
-              type: 'string',
-              description: 'A sentence from the text',
-            },
+          items: {
+            type: 'string',
+            description: 'A sentence from the text',
           },
         },
+      },
     },
   },
 } satisfies ChatCompletionTool
