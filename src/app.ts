@@ -2,6 +2,7 @@ import dotenv from 'dotenv'
 import { LlmTextSplitters } from '@@utils/llmTextSplitters.util'
 import OpenAI from 'openai'
 import { TextEmbeddingService } from '@@services/textEmbedding.service'
+import { TextIndexingService } from '@@services/textIndexing.service'
 
 dotenv.config();
 
@@ -21,7 +22,11 @@ dotenv.config();
   
   const textEmbeddingService = new TextEmbeddingService(openai)
   const embedding = await textEmbeddingService.embedSentences(sentences)
-  console.log(embedding)
+  
+  const documentIndexingService = new TextIndexingService()
+  const result = await documentIndexingService.updateTextindex(embedding)
+  
+  console.log(result)
   
 })()
 
