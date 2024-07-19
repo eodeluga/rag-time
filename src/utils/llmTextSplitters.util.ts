@@ -21,6 +21,11 @@ export class LlmTextSplitters {
     const response = await this.openai.chat.completions.create({
       model: 'gpt-3.5-turbo',
       response_format: { type: 'json_object' },
+      temperature: 1,
+      max_tokens: 256,
+      top_p: 0.5,
+      frequency_penalty: 0,
+      presence_penalty: 0,
       n: 1,
       tools: [sentenceSplitterFunction],
       tool_choice: 'auto',
@@ -40,9 +45,14 @@ export class LlmTextSplitters {
         : []
     )
     
+    const longestSentenceLength = functionResponse.sentences.reduce(
+      (longest, sentence) => sentence.length > longest ? sentence.length : longest,
+      0
+    )
+    
     const recursiveCharacterSplitter = new RecursiveCharacterTextSplitter({
-      chunkSize: 50,
-      chunkOverlap: 25,
+      chunkSize: longestSentenceLength > 0 ? longestSentenceLength : 50,
+      chunkOverlap: longestSentenceLength > 0 ? Math.ceil(longestSentenceLength/2) : 25,
     })
     
     const sentences = await recursiveCharacterSplitter.splitText(

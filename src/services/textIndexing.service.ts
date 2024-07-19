@@ -1,6 +1,8 @@
 import { nanoid } from 'nanoid'
 import { QdrantDbConnection } from '@@utils/connectionManager.util'
 import type { TextEmbedding } from '@@models/TextEmbedding'
+import type OpenAI from 'openai'
+import { TextEmbeddingService } from './textEmbedding.service'
 
 export class TextIndexingService {
   private client = QdrantDbConnection
@@ -8,7 +10,7 @@ export class TextIndexingService {
   // private collectionId = nanoid()
   private collectionId = 'text-embedding-collection'
    
-  async updateTextindex(textEmbeddingArr: TextEmbedding[]) {
+  async insertIndex(textEmbeddingArr: TextEmbedding[]) {
     const qdrantPoints = textEmbeddingArr.map((textEmbedding) => ({
       id: textEmbedding.index,
       vector: textEmbedding.embedding,
@@ -18,21 +20,20 @@ export class TextIndexingService {
       },
     }))
     
-    const {exists: collectionExists } = await this.client.collectionExists(this.collectionId)
+    // const {exists: collectionExists } = await this.client.collectionExists(this.collectionId)
     
-    if (!collectionExists) {
-      console.log('Creating collection')
-      await this.client.createCollection(this.collectionId, {
-        vectors: {
-          size: qdrantPoints[0].vector.length,
-          distance: 'Cosine',
-        },
-        optimizers_config: {
-          default_segment_number: 2,
-        },
-        replication_factor: 2,
-      })
-    }
+    // if (!collectionExists) {
+    await this.client.recreateCollection(this.collectionId, {
+      vectors: {
+        size: qdrantPoints[0].vector.length,
+        distance: 'Cosine',
+      },
+      optimizers_config: {
+        default_segment_number: 2,
+      },
+      replication_factor: 2,
+    })
+    // }
     
     const result = await this.client.upsert(this.collectionId, {
       points: qdrantPoints,
@@ -42,5 +43,17 @@ export class TextIndexingService {
       collectionId: this.collectionId,
       status: result.status,
     }
+  }
+  
+  async searchIndex(query: string, openai: OpenAI) {
+    const textEmbeddingService = new TextEmbeddingService(openai)
+    const queryEmbedding = await textEmbeddingService.embedSentences([query])
+    
+    const results = await this.client.search(this.collectionId, {
+      vector: queryEmbedding[0].embedding,
+      limit: 3,
+    })
+    
+    return results.map((result) => (result.payload ? result.payload.text : []))
   }
 }

@@ -12,21 +12,25 @@ dotenv.config();
   })
   
   // Chunk the first page of Harry Potter and the Philosopher's Stone
-  const llmTextSplitters = new LlmTextSplitters(openai)
-  const sentences = await llmTextSplitters.recursiveSentenceSplitter(
-    'Mr. and Mrs. Dursley, of number four, Privet Drive, were proud to say that they were perfectly normal, thank you very much.'
-    + 'They were the last people you’d expect to be involved in anything strange or mysterious,'
+  const text = 'Mr . and Mrs . Dursley, of number four, Privet Drive, '
+    + 'were proud to say that they were perfectly normal, thank you very much.'
+    + 'They were the last people you’d expect to be involved in anything strange or mysterious, '
     + 'because they just didn’t hold with such nonsense.'
     + 'Mr. Dursley was the director of a firm called Grunnings, which made drills. He was a big, beef'
-  )
+  const llmTextSplitters = new LlmTextSplitters(openai)
+  const sentences = await llmTextSplitters.recursiveSentenceSplitter(text)
   
   const textEmbeddingService = new TextEmbeddingService(openai)
   const embedding = await textEmbeddingService.embedSentences(sentences)
   
   const documentIndexingService = new TextIndexingService()
-  const result = await documentIndexingService.updateTextindex(embedding)
+  await documentIndexingService.insertIndex(embedding)
   
-  console.log(result)
+  const results = await documentIndexingService.searchIndex(
+    'firm',
+    openai
+  )
+  console.log(results)
   
 })()
 
