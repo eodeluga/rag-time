@@ -23,6 +23,7 @@ export class TextIndexingService {
     // const {exists: collectionExists } = await this.client.collectionExists(this.collectionId)
     
     // if (!collectionExists) {
+    // await this.client.createCollection(this.collectionId, {
     await this.client.recreateCollection(this.collectionId, {
       vectors: {
         size: qdrantPoints[0].vector.length,
