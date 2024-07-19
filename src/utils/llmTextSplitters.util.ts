@@ -50,6 +50,8 @@ export class LlmTextSplitters {
       0
     )
     
+    // TODO: Implement a better way to chunk the text.
+    // Try using the LLM to split where each sentence has a summary of the previous sentence.
     const recursiveCharacterSplitter = new RecursiveCharacterTextSplitter({
       chunkSize: longestSentenceLength > 0 ? longestSentenceLength : 50,
       chunkOverlap: longestSentenceLength > 0 ? Math.ceil(longestSentenceLength/2) : 25,
