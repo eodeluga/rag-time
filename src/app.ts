@@ -18,7 +18,7 @@ dotenv.config();
     + 'because they just didn’t hold with such nonsense.'
     + 'Mr. Dursley was the director of a firm called Grunnings, which made drills. He was a big, beef'
   const llmTextSplitters = new LlmTextSplitters(openai)
-  const sentences = await llmTextSplitters.recursiveSentenceSplitter(text)
+  const sentences = await llmTextSplitters.textChunker(text)
   
   const textEmbeddingService = new TextEmbeddingService(openai)
   const embedding = await textEmbeddingService.embedSentences(sentences)
@@ -27,7 +27,8 @@ dotenv.config();
   await documentIndexingService.insertIndex(embedding)
   
   const results = await documentIndexingService.searchIndex(
-    'firm',
+    'What were the Dursleys like?',
+    1,
     openai
   )
   console.log(results)
