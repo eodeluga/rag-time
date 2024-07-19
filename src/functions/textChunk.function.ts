@@ -13,10 +13,6 @@ export const textChunkFunction = {
           items: {
             type: 'object',
             properties: {
-              index: {
-                type: 'integer',
-                description: 'The index of the chunk',
-              },
               text: {
                 type: 'string',
                 description: 'The text of the chunk',

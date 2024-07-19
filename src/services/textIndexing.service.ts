@@ -46,13 +46,13 @@ export class TextIndexingService {
     }
   }
   
-  async searchIndex(query: string, openai: OpenAI) {
+  async searchIndex(query: string, limit: number, openai: OpenAI) {
     const textEmbeddingService = new TextEmbeddingService(openai)
     const queryEmbedding = await textEmbeddingService.embedSentences([query])
     
     const results = await this.client.search(this.collectionId, {
       vector: queryEmbedding[0].embedding,
-      limit: 3,
+      limit,
     })
     
     return results.map((result) => (result.payload ? result.payload.text : []))
