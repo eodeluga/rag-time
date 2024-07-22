@@ -1,7 +1,4 @@
 import OpenAI from 'openai'
-import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters'
-import { sentenceSplitterFunction } from '@@functions/sentenceSplitter.function'
-import { SentenceSplitterResponseValidator } from '@@validators/sentenceSplitter.validator'
 import { textChunkFunction } from '@@functions/textChunk.function'
 import { TextChunkerResponseValidator } from '@@validators/textChunker.validator'
 
