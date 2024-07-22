@@ -23,7 +23,7 @@
       "internalConsoleOptions": "openOnSessionStart"
     },
     {
-      "name": "Test Program",
+      "name": "Bun Test",
       "type": "bun",
       "args": ["test"],
       "request": "launch",
@@ -31,5 +31,14 @@
       "stopOnEntry": false,
       "internalConsoleOptions": "openOnSessionStart" 
     },
+    {
+      "name": "Node Test",
+      "type": "node",
+      "program": "node_modules/tsx/dist/cli.cjs",
+      "args": ["--test","src/test/test.spec.ts"],
+      "request": "launch",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "openOnSessionStart"
+    }
   ]
 }

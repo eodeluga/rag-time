@@ -21,15 +21,14 @@ dotenv.config();
   const sentences = await llmTextSplitters.textChunker(text)
   
   const textEmbeddingService = new TextEmbeddingService(openai)
-  const embedding = await textEmbeddingService.embedSentences(sentences)
+  const embedding = await textEmbeddingService.gpt3EmbedSentences(sentences)
   
   const documentIndexingService = new TextIndexingService()
-  await documentIndexingService.insertIndex(embedding)
+  await documentIndexingService.gpt3InsertIndex(embedding)
   
-  const results = await documentIndexingService.searchIndex(
+  const results = await documentIndexingService.gpt3SearchIndex(
     'What were the Dursleys like?',
-    1,
-    openai
+    1
   )
   console.log(results)
   
