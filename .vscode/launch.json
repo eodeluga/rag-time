@@ -14,15 +14,6 @@
       "internalConsoleOptions": "openOnSessionStart"    
     },
     {
-      "name": "Node Run",
-      "type": "node",
-      "program": "node_modules/tsx/dist/cli.cjs",
-      "args": ["src/app.ts"],
-      "request": "launch",
-      "console": "integratedTerminal",
-      "internalConsoleOptions": "openOnSessionStart"
-    },
-    {
       "name": "Bun Test",
       "type": "bun",
       "args": ["test"],
@@ -31,14 +22,23 @@
       "stopOnEntry": false,
       "internalConsoleOptions": "openOnSessionStart" 
     },
+        {
+      "name": "Node Run",
+      "type": "node",
+      "program": "node_modules/tsx/dist/cli.cjs",
+      "args": ["src/app.ts"],
+      "request": "launch",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen"
+    },
     {
       "name": "Node Test",
       "type": "node",
-      "program": "node_modules/tsx/dist/cli.cjs",
-      "args": ["--test","src/test/test.spec.ts"],
+      "program": "node_modules/jest/bin/jest.js",
+      "args": ["test/test.spec.ts"],
       "request": "launch",
       "console": "integratedTerminal",
-      "internalConsoleOptions": "openOnSessionStart"
+      "internalConsoleOptions": "neverOpen"
     }
   ]
 }
