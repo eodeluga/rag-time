@@ -3,6 +3,7 @@
     // Module and Target Options
     "target": "ESNext",
     "module": "ESNext",
+    "moduleResolution": "node",
     "esModuleInterop": true,
     
     // Strict Type-Checking Options
