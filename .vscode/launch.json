@@ -29,7 +29,7 @@
       "args": ["src/app.ts"],
       "request": "launch",
       "console": "integratedTerminal",
-      "internalConsoleOptions": "openOnSessionStart"
+      "internalConsoleOptions": "neverOpen"
     },
     {
       "name": "Node Test",
@@ -38,8 +38,7 @@
       "args": ["test/test.spec.ts"],
       "request": "launch",
       "console": "integratedTerminal",
-      "stopOnEntry": false,
-      "internalConsoleOptions": "openOnSessionStart"
+      "internalConsoleOptions": "neverOpen"
     }
   ]
 }
