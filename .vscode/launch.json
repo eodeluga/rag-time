@@ -37,7 +37,7 @@
       "program": "node_modules/jest/bin/jest.js",
       "args": ["test/test.spec.ts"],
       "request": "launch",
-      "console": "externalTerminal",
+      "console": "integratedTerminal",
       "stopOnEntry": false,
       "internalConsoleOptions": "openOnSessionStart"
     }
