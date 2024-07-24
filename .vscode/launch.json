@@ -5,7 +5,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Launch Program",
+      "name": "Bun Run",
       "type": "bun",
       "args": ["run"],
       "request": "launch",
@@ -14,7 +14,7 @@
       "internalConsoleOptions": "openOnSessionStart"    
     },
     {
-      "name": "Test Program",
+      "name": "Bun Test",
       "type": "bun",
       "args": ["test"],
       "request": "launch",
@@ -22,5 +22,24 @@
       "stopOnEntry": false,
       "internalConsoleOptions": "openOnSessionStart" 
     },
+        {
+      "name": "Node Run",
+      "type": "node",
+      "program": "node_modules/tsx/dist/cli.cjs",
+      "args": ["src/app.ts"],
+      "request": "launch",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "openOnSessionStart"
+    },
+    {
+      "name": "Node Test",
+      "type": "node",
+      "program": "node_modules/jest/bin/jest.js",
+      "args": ["test/test.spec.ts"],
+      "request": "launch",
+      "console": "externalTerminal",
+      "stopOnEntry": false,
+      "internalConsoleOptions": "openOnSessionStart"
+    }
   ]
 }
