@@ -22,7 +22,7 @@
       "stopOnEntry": false,
       "internalConsoleOptions": "openOnSessionStart" 
     },
-        {
+    {
       "name": "Node Run",
       "type": "node",
       "program": "node_modules/tsx/dist/cli.cjs",
