@@ -1,8 +1,5 @@
-import { TextEmbeddingService } from '@@services/textEmbedding.service'
+import { TextEmbeddingService } from '../src/services/textEmbedding.service'
 import { LlmTextSplitters } from '@@utils/llmTextSplitters.util'
-import { describe, it } from 'bun:test'
-// import { describe, it } from 'mocha'
-
 import OpenAI from 'openai'
 import dotenv from 'dotenv'
 dotenv.config()
