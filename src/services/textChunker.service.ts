@@ -1,9 +1,16 @@
 import OpenAI from 'openai'
-import { textChunkFunction } from '@@functions/textChunk.function'
+import { textChunkerFunction } from '@@functions/textChunker.function'
 import { TextChunkerResponseValidator } from '@@validators/textChunker.validator'
 
-export class LlmTextSplitters {
-  private openai
+/**
+ * @class TextChunkerService
+ * @classdesc TextChunkerService class for chunking text
+ * @param {OpenAI} llm - OpenAI instance
+ * @returns {TextChunk[]} TextChunk object
+ */
+export class TextChunkerService {
+  private model: string
+  private openai: OpenAI
   
   private normaliseText = ((text: string) => text
     .toLowerCase()
@@ -12,13 +19,20 @@ export class LlmTextSplitters {
     .trim()
   )
   
-  constructor(llm: OpenAI) {
+  constructor(llm: OpenAI, model = 'gpt-3.5-turbo') {
     this.openai = llm
+    this.model = model
   }
   
-  async textChunker(text: string) {
+  /**
+   * @function chunk
+   * @description Chunk text into smaller parts
+   * @param {String} text - The text to chunk
+   * @returns {Array} The chunks of text
+   */
+  async chunk(text: string): Promise<TextChunk[]> {
     const response = await this.openai.chat.completions.create({
-      model: 'gpt-3.5-turbo',
+      model: this.model,
       response_format: { type: 'json_object' },
       temperature: 1,
       // max_tokens: 256,
@@ -26,7 +40,7 @@ export class LlmTextSplitters {
       frequency_penalty: 0,
       presence_penalty: 0,
       n: 1,
-      tools: [textChunkFunction],
+      tools: [textChunkerFunction],
       tool_choice: 'auto',
       messages: [
         { role: 'system', content: 'You are a helpful assistant.' },
@@ -44,10 +58,9 @@ export class LlmTextSplitters {
         : []
     )
     
-    return functionResponse.chunks.map((chunk) => (
-      this.normaliseText(chunk.summary)
-      + ': ' 
-      + this.normaliseText(chunk.text)
-    ))
+    return functionResponse.chunks.map((chunk) => ({
+      summary: this.normaliseText(chunk.summary),
+      text: this.normaliseText(chunk.text),
+    }))
   }
 }
