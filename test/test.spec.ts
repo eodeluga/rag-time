@@ -1,5 +1,5 @@
-import { TextEmbeddingService } from '../src/services/textEmbedding.service'
-import { LlmTextSplitters } from '@@utils/llmTextSplitters.util'
+import { TextChunkEmbeddingService } from '../src/services/textChunkEmbedding.service'
+import { TextChunkerService } from '@@services/textChunker.service'
 import OpenAI from 'openai'
 import dotenv from 'dotenv'
 dotenv.config()
@@ -16,9 +16,9 @@ const text = 'Mr . and Mrs . Dursley, of number four, Privet Drive, '
 
 describe('Test template', async function() {
   it('tests the performance of gpt-3-encoder library', async function() {
-    const llmTextSplitters = new LlmTextSplitters(openai)
-    const sentences = await llmTextSplitters.textChunker(text)
-    const textEmbeddingService = new TextEmbeddingService(openai) 
+    const llmTextSplitters = new TextChunkerService(openai)
+    const sentences = await llmTextSplitters.chunk(text)
+    const textEmbeddingService = new TextChunkEmbeddingService(openai) 
     const startTime = performance.now()
     const embedding = await textEmbeddingService.gpt3EmbedSentences(sentences)
     const endTime = performance.now()
@@ -27,20 +27,20 @@ describe('Test template', async function() {
   })
   
   it('tests the performance of Open AI embedding', async function() {
-    const llmTextSplitters = new LlmTextSplitters(openai)
-    const sentences = await llmTextSplitters.textChunker(text)
-    const textEmbeddingService = new TextEmbeddingService(openai) 
+    const llmTextSplitters = new TextChunkerService(openai)
+    const sentences = await llmTextSplitters.chunk(text)
+    const textEmbeddingService = new TextChunkEmbeddingService(openai) 
     const startTime = performance.now()
-    const embedding = await textEmbeddingService.embedSentences(sentences)
+    const embedding = await textEmbeddingService.embedChunks(sentences)
     const endTime = performance.now()
     const timeTaken = endTime - startTime
     console.log(`Time taken to produce embedding of size ${embedding.length} Open AI: ${timeTaken} ms`)
   })
   
   it('tests the performance of transformers library', async function() {
-    const llmTextSplitters = new LlmTextSplitters(openai)
-    const sentences = await llmTextSplitters.textChunker(text)
-    const textEmbeddingService = new TextEmbeddingService(openai) 
+    const llmTextSplitters = new TextChunkerService(openai)
+    const sentences = await llmTextSplitters.chunk(text)
+    const textEmbeddingService = new TextChunkEmbeddingService(openai) 
     const startTime = performance.now()
     await textEmbeddingService.transformersEmbedSentences(sentences)
     const endTime = performance.now()

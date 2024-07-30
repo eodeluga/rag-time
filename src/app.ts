@@ -1,8 +1,8 @@
 import dotenv from 'dotenv'
-import { LlmTextSplitters } from '@@utils/llmTextSplitters.util'
+import { TextChunkerService } from '@@services/textChunker.service'
 import OpenAI from 'openai'
-import { TextEmbeddingService } from '@@services/textEmbedding.service'
-import { TextIndexingService } from '@@services/textIndexing.service'
+import { TextChunkEmbeddingService } from '@@services/textChunkEmbedding.service'
+import { TextChunkIndexingService } from '@@services/textChunkIndexing.service'
 
 dotenv.config();
 
@@ -17,20 +17,24 @@ dotenv.config();
     + 'They were the last people you’d expect to be involved in anything strange or mysterious, '
     + 'because they just didn’t hold with such nonsense.'
     + 'Mr. Dursley was the director of a firm called Grunnings, which made drills. He was a big, beef'
-  const llmTextSplitters = new LlmTextSplitters(openai)
-  const sentences = await llmTextSplitters.textChunker(text)
   
-  const textEmbeddingService = new TextEmbeddingService(openai)
-  const embedding = await textEmbeddingService.gpt3EmbedSentences(sentences)
+  const textChunkerService = new TextChunkerService(openai)
+  const chunks = await textChunkerService.chunk(text)
   
-  const documentIndexingService = new TextIndexingService()
-  await documentIndexingService.gpt3InsertIndex(embedding)
+  const textEmbeddingService = new TextChunkEmbeddingService(openai)
+  const embedding = await textEmbeddingService.embedChunks(chunks)
+
+  const textChunkIndexingService = new TextChunkIndexingService()
+  await textChunkIndexingService.insertIndex(embedding)
   
-  const results = await documentIndexingService.gpt3SearchIndex(
-    'What were the Dursleys like?',
-    1
+  const results = await textChunkIndexingService.searchIndex({
+    query: 'Where did the Dursleys live?',
+    limit: 1,
+    openai,
+  }
   )
-  console.log(results)
+  console.log(results) 
+
   
 })()
 
