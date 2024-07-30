@@ -1,17 +1,20 @@
 module.exports = {
   parser: '@typescript-eslint/parser',
   parserOptions: {
-    project: './tsconfig.json',
-    tsconfigRootDir: __dirname,
+    project: 'tsconfig.json',
     sourceType: 'module',
   },
   plugins: ['@typescript-eslint/eslint-plugin'],
-  extends: ['eslint:recommended', 'plugin:@typescript-eslint/recommended'],
+  // extends: [
+  //   'airbnb-base',
+  //   'airbnb-typescript/base',
+  // ],
   root: true,
   env: {
     node: true,
+    jest: true,
   },
-  ignorePatterns: ['**/*.js', 'src/prisma/**/*', '.eslintrc.cjs', 'node_modules/', 'dist/'],
+  ignorePatterns: ['**/*.js', 'src/prisma/**/*', 'src/seeding/ddl/*', '**/dist/'],
   rules: {
     '@typescript-eslint/interface-name-prefix': 'off',
     '@typescript-eslint/naming-convention': ['error', {
@@ -21,7 +24,7 @@ module.exports = {
         trailingUnderscore: 'allow',
       },
     ],
-    '@typescript-eslint/no-unused-vars': 'warn',
+    '@typescript-eslint/no-unused-vars': 'off',
     '@typescript-eslint/no-throw-literal': 'off',
     'default-case': 'off',
     'no-underscore-dangle': 'off',
@@ -158,10 +161,9 @@ module.exports = {
     {
       files: ['test/**/*.spec.ts'],
       rules: {
-        'arrow-body-style': ['error', 'as-needed'],
         '@typescript-eslint/no-non-null-assertion': 'off',
         '@typescript-eslint/no-unused-expressions': 'off',
       }
     }
   ]
-}
+};
