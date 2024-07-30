@@ -1,39 +1,30 @@
 {
   "compilerOptions": {
-    // Module and Target Options
-    "target": "ESNext",
-    "module": "ESNext",
+    "noEmitOnError": true,
+    "noImplicitAny": true,
     "esModuleInterop": true,
-    
-    // Strict Type-Checking Options
-    "strict": true,
-    "noFallthroughCasesInSwitch": true,
-
-    // Interoperability and Compatibility
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-
-    // JSX and JavaScript Options
-    "jsx": "react-jsx",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "target": "ES2016",
+    "module": "CommonJS",
     "allowJs": true,
-
-    // Module Resolution and Import Options
-    "allowImportingTsExtensions": true,
-
-    // Output Control
-    "noEmit": true,
-
-    // Path Resolution
-    "baseUrl": "./src",
+    "sourceMap": true,
+    "resolveJsonModule": true,
+    "moduleResolution": "Node",
+    "alwaysStrict": true,
+    "strict": true,
+    "baseUrl": "src",
+    "outDir": "./dist/",
+    "plugins": [
+      { "transform": "typescript-transform-paths" }
+    ],
     "paths": {
       "@@functions/*": ["functions/*"],
       "@@models/*": ["models/*"],
+      "@@schemas/*": ["schemas/*"],
       "@@services/*": ["services/*"],
       "@@utils/*": ["utils/*"],
       "@@validators/*": ["validators/*"],
     },
   },
-  "include": ["src", "test"],
-  "exclude": ["node_modules", "dist"]
 }
-
