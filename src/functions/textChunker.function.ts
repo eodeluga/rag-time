@@ -9,7 +9,7 @@ import type { ChatCompletionTool } from 'openai/resources/index'
  * @param {String} chunks.chunks.summary - Keyword summaries of text used in `text` property
  * @returns {Object} The processed chunks
  */
-export const textChunkerFunction = {
+export const TextChunkerFunction = {
   type: 'function',
   function: {
     name: 'text_chunker',

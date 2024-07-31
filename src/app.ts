@@ -33,7 +33,7 @@ dotenv.config();
     openai,
   }
   )
-  console.log(results) 
+  console.log(results)
 
   
 })()

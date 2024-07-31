@@ -1,6 +1,7 @@
 import OpenAI from 'openai'
-import { textChunkerFunction } from '@@functions/textChunker.function'
+import { TextChunkerFunction } from '@@functions/textChunker.function'
 import { TextChunkerResponseValidator } from '@@validators/textChunker.validator'
+import type { TextChunk } from '@@models/TextChunk.model'
 
 /**
  * @class TextChunkerService
@@ -40,7 +41,7 @@ export class TextChunkerService {
       frequency_penalty: 0,
       presence_penalty: 0,
       n: 1,
-      tools: [textChunkerFunction],
+      tools: [TextChunkerFunction],
       tool_choice: 'auto',
       messages: [
         { role: 'system', content: 'You are a helpful assistant.' },
