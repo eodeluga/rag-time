@@ -25,10 +25,10 @@ dotenv.config();
   const embedding = await textEmbeddingService.embedChunks(chunks)
 
   const textChunkIndexingService = new TextChunkIndexingService()
-  await textChunkIndexingService.insertIndex(embedding)
+  await textChunkIndexingService.insert(embedding)
   
-  const results = await textChunkIndexingService.searchIndex({
-    query: 'Where did the Dursleys live?',
+  const results = await textChunkIndexingService.query({
+    query: 'Mr. Dursley\'s job',
     limit: 1,
     openai,
   }
