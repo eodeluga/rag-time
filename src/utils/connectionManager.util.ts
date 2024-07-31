@@ -16,4 +16,4 @@ class ConnectionManager {
   }  
 }
 
-export const QdrantDbConnection = await ConnectionManager.getQdrantClient()
+export const QdrantDbConnection = ConnectionManager

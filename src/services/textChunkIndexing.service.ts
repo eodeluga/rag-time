@@ -1,11 +1,11 @@
 import { nanoid } from 'nanoid'
 import { QdrantDbConnection } from '@@utils/connectionManager.util'
-import type { TextEmbedding } from '@@models/TextEmbedding'
+import type { TextEmbedding } from '@@models/TextEmbedding.model'
 import type OpenAI from 'openai'
 import { TextChunkEmbeddingService } from '@@services/textChunkEmbedding.service'
 
 export class TextChunkIndexingService {
-  private client = QdrantDbConnection
+  // private client = await QdrantDbConnection.getQdrantClient()
   // TODO: Change this for production
   // private collectionId = nanoid()
   private collectionId = 'text-embedding-collection'
@@ -19,12 +19,13 @@ export class TextChunkIndexingService {
         text: textEmbedding.text,
       },
     }))
-    
+    const client = await QdrantDbConnection.getQdrantClient()
+    // const client = await QdrantDbConnection.getQdrantClient()
     // const {exists: collectionExists } = await this.client.collectionExists(this.collectionId)
     
     // if (!collectionExists) {
     // await this.client.createCollection(this.collectionId, {
-    await this.client.recreateCollection(this.collectionId, {
+    await client.recreateCollection(this.collectionId, {
       vectors: {
         size: qdrantPoints[0].vector.length,
         distance: 'Cosine',
@@ -36,7 +37,7 @@ export class TextChunkIndexingService {
     })
     // }
     
-    const result = await this.client.upsert(this.collectionId, {
+    const result = await client.upsert(this.collectionId, {
       points: qdrantPoints,
     })
     
@@ -50,8 +51,9 @@ export class TextChunkIndexingService {
     const { query, limit, openai } = opts
     const textEmbeddingService = new TextChunkEmbeddingService(openai)
     const queryEmbedding = await textEmbeddingService.embedChunks([{ text: query }])
+    const client = await QdrantDbConnection.getQdrantClient()
     
-    const results = await this.client.search(this.collectionId, {
+    const results = await client.search(this.collectionId, {
       vector: queryEmbedding[0].embedding,
       limit,
     })
