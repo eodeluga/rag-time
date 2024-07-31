@@ -10,7 +10,7 @@ export class TextChunkIndexingService {
   // private collectionId = nanoid()
   private collectionId = 'text-embedding-collection'
    
-  async insertIndex(textEmbeddingArr: TextEmbedding[]) {
+  async insert(textEmbeddingArr: TextEmbedding[]) {
     const qdrantPoints = textEmbeddingArr.map((textEmbedding) => ({
       id: textEmbedding.index,
       vector: textEmbedding.embedding,
@@ -46,7 +46,7 @@ export class TextChunkIndexingService {
     }
   }
 
-  async searchIndex(opts: { query: string, limit: number, openai: OpenAI }) {
+  async query(opts: { query: string, limit: number, openai: OpenAI }): Promise<string[]> {
     const { query, limit, openai } = opts
     const textEmbeddingService = new TextChunkEmbeddingService(openai)
     const queryEmbedding = await textEmbeddingService.embedChunks([{ text: query }])
@@ -56,7 +56,7 @@ export class TextChunkIndexingService {
       limit,
     })
     
-    return results.map((result) => (result.payload ? result.payload.text : []))
+    return results.map((result) => (result.payload?.text as string ?? ''))
   }
   
 }
