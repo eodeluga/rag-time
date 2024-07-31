@@ -21,7 +21,7 @@ export class TextChunkEmbeddingService {
    * @param {TextChunk[]} chunks - The text and optional text summaries chunks to embed
    * @returns {TextEmbedding[]} The embeddings of text object of the chunks
    */
-  async embedChunks(chunks: TextChunk[]) {
+  async embedChunks(chunks: TextChunk[]): Promise<TextEmbedding[]> {
     const textAndSummaries = chunks.map(
       (chunk) => chunk.summary
         ? chunk.text + '.' + chunk.summary
