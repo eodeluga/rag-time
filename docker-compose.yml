@@ -11,4 +11,13 @@ services:
       - "6334:6334"
     volumes:
       - .data/qdrant_storage:/qdrant/storage:z
-
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+        reservations:
+          memory: 1g
+    security_opt:
+      - no-new-privileges:false
+    cap_add:
+      - SYS_ADMIN
