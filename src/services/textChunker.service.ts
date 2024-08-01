@@ -1,7 +1,7 @@
 import OpenAI from 'openai'
 import { TextChunkerFunction } from '@@functions/textChunker.function'
 import { TextChunkerResponseValidator } from '@@validators/textChunker.validator'
-import type { TextChunk } from '@@models/TextChunk.model'
+import type { TextChunk } from '@@models/TextChunk'
 
 /**
  * @class TextChunkerService
