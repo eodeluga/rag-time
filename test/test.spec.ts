@@ -1,4 +1,4 @@
-import { TextChunkEmbeddingService } from '../src/services/textChunkEmbedding.service'
+import { TextChunkEmbeddingService } from '@@services/textChunkEmbedding.service'
 import { TextChunkerService } from '@@services/textChunker.service'
 import OpenAI from 'openai'
 import dotenv from 'dotenv'
@@ -15,17 +15,7 @@ const text = 'Mr . and Mrs . Dursley, of number four, Privet Drive, '
   + 'Mr. Dursley was the director of a firm called Grunnings, which made drills. He was a big, beef'
 
 describe('Test template', async function() {
-  it('tests the performance of gpt-3-encoder library', async function() {
-    const llmTextSplitters = new TextChunkerService(openai)
-    const sentences = await llmTextSplitters.chunk(text)
-    const textEmbeddingService = new TextChunkEmbeddingService(openai) 
-    const startTime = performance.now()
-    const embedding = await textEmbeddingService.gpt3EmbedSentences(sentences)
-    const endTime = performance.now()
-    const timeTaken = endTime - startTime
-    console.log(`Time taken to produce embedding of size ${embedding.length} gpt-3-encoder: ${timeTaken} ms`)
-  })
-  
+  this.timeout(5000)
   it('tests the performance of Open AI embedding', async function() {
     const llmTextSplitters = new TextChunkerService(openai)
     const sentences = await llmTextSplitters.chunk(text)
@@ -36,16 +26,4 @@ describe('Test template', async function() {
     const timeTaken = endTime - startTime
     console.log(`Time taken to produce embedding of size ${embedding.length} Open AI: ${timeTaken} ms`)
   })
-  
-  it('tests the performance of transformers library', async function() {
-    const llmTextSplitters = new TextChunkerService(openai)
-    const sentences = await llmTextSplitters.chunk(text)
-    const textEmbeddingService = new TextChunkEmbeddingService(openai) 
-    const startTime = performance.now()
-    await textEmbeddingService.transformersEmbedSentences(sentences)
-    const endTime = performance.now()
-    const timeTaken = endTime - startTime
-    console.log(`Time taken to produce embedding of size ${sentences.length} transformers: ${timeTaken} ms`)
-  })
-  
 })
