@@ -18,6 +18,7 @@
     "plugins": [
       { "transform": "typescript-transform-paths" }
     ],
+    "typeRoots": ["node_modules/@types", "ts-helper-types"],
     "paths": {
       "@@functions/*": ["functions/*"],
       "@@models/*": ["models/*"],

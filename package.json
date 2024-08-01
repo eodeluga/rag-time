@@ -4,13 +4,12 @@
   "description": "Simple RAG framework for LLMs",
   "main": "src/app.ts",
   "repository": "git@ssh.dev.azure.com:v3/theincredibleaf/RoboRecruit.AI/rag-time",
-  "author": "eodeluga",
+  "author": "Eugene Odeluga",
   "license": "MIT",
-  "private": true,
   "type": "commonjs",
   "scripts": {
-    "start": "bun run src/app.ts",
-    "test": "yarn jest test/*.spec.ts",
+    "start": "node run src/app.ts",
+    "test": "tsx mocha test/*.spec.ts",
     "lint": "eslint \"{src,test}/**/*.ts\""
   },
   "devDependencies": {
@@ -27,6 +26,7 @@
     "dotenv": "^16.4.5",
     "nanoid": "^5.0.7",
     "openai": "^4.52.4",
+    "pdf-parse-debugging-disabled": "^1.1.1",
     "zod": "^3.23.8"
   }
 }
