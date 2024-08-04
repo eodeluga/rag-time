@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid'
 import { QdrantDbConnection } from '@@utils/connectionManager.util'
-import type { TextEmbedding } from '@@models/TextEmbedding.model'
+import type { TextEmbedding } from '@@models/TextEmbedding'
 import type OpenAI from 'openai'
 import { TextChunkEmbeddingService } from '@@services/textChunkEmbedding.service'
 

@@ -1,5 +1,5 @@
-import type { TextChunk } from '@@models/TextChunk.model'
-import type { TextEmbedding } from '@@models/TextEmbedding.model'
+import type { TextChunk } from '@@models/TextChunk'
+import type { TextEmbedding } from '@@models/TextEmbedding'
 import { LlmEmbeddingValidator } from '@@validators/llmEmbedding.validator'
 import type OpenAI from 'openai'
 
