@@ -2,7 +2,7 @@ import { createHash } from 'crypto'
 import { QdrantDbConnection } from '@@utils/connectionManager.util'
 export class HashingService {
   
-  async hashExists(hash: string) {
+  static async hashExists(hash: string) {
     try {
       const qdrant = await QdrantDbConnection.getQdrantClient()
       const { exists } = await qdrant.collectionExists(hash)
@@ -12,7 +12,7 @@ export class HashingService {
     }
   }
   
-  async hashBuffer(fileBuffer: Buffer): Promise<string> {
+  static async hashBuffer(fileBuffer: Buffer): Promise<string> {
     try {
       const hash = createHash('sha256')
       hash.update(fileBuffer)
