@@ -2,6 +2,7 @@ import { TextChunkEmbeddingService } from '@@services/textChunkEmbedding.service
 import { TextChunkerService } from '@@services/textChunker.service'
 import OpenAI from 'openai'
 import dotenv from 'dotenv'
+import { EmbeddingService } from '@@services/embedding.service'
 dotenv.config()
 
 const openai = new OpenAI({
@@ -19,7 +20,9 @@ describe('Test template', async function() {
   it('tests the performance of Open AI embedding', async function() {
     const llmTextSplitters = new TextChunkerService(openai)
     const sentences = await llmTextSplitters.chunk(text)
-    const textEmbeddingService = new TextChunkEmbeddingService(openai) 
+    
+    const embeddingService = new EmbeddingService(openai)
+    const textEmbeddingService = new TextChunkEmbeddingService(embeddingService) 
     const startTime = performance.now()
     const embedding = await textEmbeddingService.embedChunks(sentences)
     const endTime = performance.now()
