@@ -1,9 +1,9 @@
 import { TextChunkerService } from '@@services/textChunker.service'
-import { hashBuffer } from '@@utils/hashBuffer.util'
+import { HashingService } from '@@services/hashing.service'
 import { promises as fs } from 'fs'
 import pdfparse from 'pdf-parse-debugging-disabled'
-import { TextChunkEmbeddingService } from './textChunkEmbedding.service'
-import { TextChunkIndexingService } from './textChunkIndexing.service'
+import { TextChunkEmbeddingService } from '@@services/textChunkEmbedding.service'
+import { TextChunkIndexingService } from '@@services/textChunkIndexing.service'
 
 
 export class PDFChunkerService {
@@ -29,7 +29,7 @@ export class PDFChunkerService {
           
       try {
         const buffer = await fs.readFile(filePath)
-        const hashAsCollectionName = await hashBuffer(buffer)
+        const hashAsCollectionName = await HashingService.hashBuffer(buffer)
         const exists = await this.textChunkIndexingService.collectionExists(hashAsCollectionName)
         
         if (exists) {
