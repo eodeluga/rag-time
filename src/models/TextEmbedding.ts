@@ -1,5 +1,5 @@
-export interface TextEmbedding {
-  index: number
+import { VectorEmbedding } from '@@models/VectorEmbedding'
+
+export interface TextEmbedding extends VectorEmbedding{
   text: string
-  embedding: number[]
 }
