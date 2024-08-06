@@ -35,7 +35,7 @@
       "name": "Node Test",
       "type": "node",
       "program": "node_modules/tsx/dist/cli.cjs",
-      "args": ["node_modules/mocha/bin/mocha.js", "test/test.spec.ts"],
+      "args": ["node_modules/mocha/bin/mocha.js", "test/**/*.spec.ts"],
       "request": "launch",
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen"
