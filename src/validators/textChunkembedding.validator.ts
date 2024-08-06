@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-export const LlmEmbeddingValidator = z.array(
+export const TextChunkEmbeddingValidator = z.array(
   z.object({
     object: z.string(),
     index: z.number(),
