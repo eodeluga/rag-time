@@ -1,5 +1,5 @@
-import { VectorEmbedding } from '@@models/VectorEmbedding'
+import { CreateEmbedding } from '@@models/CreateEmbedding'
 
-export interface TextEmbedding extends VectorEmbedding{
+export interface TextEmbedding extends CreateEmbedding{
   text: string
 }
