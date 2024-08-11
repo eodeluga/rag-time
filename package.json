@@ -1,7 +1,7 @@
 {
   "name": "create-typescript-app",
   "version": "1.0.0",
-  "description": "",
+  "description": "Typescript environment setup package",
   "module": "src/app.ts",
   "type": "module",
   "scripts": {
