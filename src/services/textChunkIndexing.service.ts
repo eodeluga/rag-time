@@ -9,11 +9,22 @@ export class TextChunkIndexingService {
   // TODO: Change this for production
   // private collectionId = nanoid()
   private collectionId = 'text-embedding-collection'
-   
+  private textChunkEmbeddingService: TextChunkEmbeddingService
+  
+  constructor(textChunkEmbeddingService: TextChunkEmbeddingService) {
+    this.textChunkEmbeddingService = textChunkEmbeddingService
+  }
+  
+  async collectionExists(collectionId: string) {
+    const client = await QdrantDbConnection.getQdrantClient()
+    const { exists } = await client.collectionExists(collectionId)
+    return exists
+  }
+  
   async insert(textEmbeddingArr: TextEmbedding[]) {
     const qdrantPoints = textEmbeddingArr.map((textEmbedding) => ({
       id: textEmbedding.index,
-      vector: textEmbedding.embedding,
+      vector: textEmbedding.vector,
       payload: {
         index: textEmbedding.index,
         text: textEmbedding.text,
@@ -49,16 +60,14 @@ export class TextChunkIndexingService {
 
   async query(opts: { query: string, limit: number, openai: OpenAI }): Promise<string[]> {
     const { query, limit, openai } = opts
-    const textEmbeddingService = new TextChunkEmbeddingService(openai)
-    const queryEmbedding = await textEmbeddingService.embedChunks([{ text: query }])
+    const queryEmbedding = await this.textChunkEmbeddingService.embedChunks([{ text: query }])
     const client = await QdrantDbConnection.getQdrantClient()
     
     const results = await client.search(this.collectionId, {
-      vector: queryEmbedding[0].embedding,
+      vector: queryEmbedding[0].vector,
       limit,
     })
     
     return results.map((result) => (result.payload?.text as string ?? ''))
   }
-  
 }
