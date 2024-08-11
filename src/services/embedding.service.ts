@@ -1,6 +1,7 @@
 import { VectorEmbedding } from '@@models/VectorEmbedding'
 import { VectorEmbeddingValidator } from '@@validators/vectorEmbedding.validator'
 import type OpenAI from 'openai'
+import { TextChunkerService } from './textChunker.service'
 
 /**
  * @class EmbeddingService
@@ -24,8 +25,10 @@ export class EmbeddingService {
    * @param {string[]} texts - The texts to embed
    * @returns {number[]} The vector embedding representation of text array
    */
-  async embed(texts: string[]): Promise<VectorEmbedding[]> {
-      
+  async embedTexts(texts: string[]): Promise<VectorEmbedding[]> {
+    const textChunker = new TextChunkerService(this.llm)
+    const chunkedTexts = textChunker.chunk(texts.join())
+     
     const response = await this.llm.embeddings.create({
       model: this.model,
       input: texts,
@@ -36,6 +39,14 @@ export class EmbeddingService {
         index: vector.index,
         vector: vector.embedding,
       })) satisfies VectorEmbedding[]
-  }  
+  }
+  
+  async embedPDF(filePath: string): Promise<VectorEmbedding[]> {
+  
+  }
+  
+  private async embeddingExists() {
+  
+  }
 }
 

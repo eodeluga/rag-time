@@ -32,7 +32,7 @@ export class TextChunkEmbeddingService {
       })
     )
     
-    const embeddings = await this.embeddingService.embed(chunkMap.map((chunk) => chunk.text))
+    const embeddings = await this.embeddingService.embedTexts(chunkMap.map((chunk) => chunk.text))
         
     return embeddings.map((embedding) => ({
       index: embedding.index,
