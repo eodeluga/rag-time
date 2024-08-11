@@ -39,7 +39,7 @@ describe('TextChunkEmbeddingService test', async function() {
       text: embedding.text,
     }))
     
-    const textEmbeddings = await embeddingService.embed(texts.map((text) => text.text))
+    const textEmbeddings = await embeddingService.embedTexts(texts.map((text) => text.text))
     chunkEmbeddings.forEach((chunkEmbedding, index) => {
       const textEmbedding = textEmbeddings.find((textEmbedding) => textEmbedding.index === index)
       expect(chunkEmbedding).to.have.property('vector').that.deep.equals(textEmbedding?.vector)
