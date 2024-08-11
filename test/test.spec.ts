@@ -18,13 +18,13 @@ const text = 'Mr . and Mrs . Dursley, of number four, Privet Drive, '
 describe('Test template', async function() {
   this.timeout(5000)
   it('tests the performance of Open AI embedding', async function() {
-    const llmTextSplitters = new TextChunkerService(openai)
-    const sentences = await llmTextSplitters.chunk(text)
+    const textChunkerService = new TextChunkerService(openai)
+    const sentences = await textChunkerService.chunk(text)
     
     const embeddingService = new EmbeddingService(openai)
-    const textEmbeddingService = new TextChunkEmbeddingService(embeddingService) 
+    const textChunkEmbeddingService = new TextChunkEmbeddingService(embeddingService) 
     const startTime = performance.now()
-    const embedding = await textEmbeddingService.embedChunks(sentences)
+    const embedding = await textChunkEmbeddingService.embedChunks(sentences)
     const endTime = performance.now()
     const timeTaken = endTime - startTime
     console.log(`Time taken to produce embedding of size ${embedding.length} Open AI: ${timeTaken} ms`)

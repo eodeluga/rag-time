@@ -22,7 +22,7 @@ describe('EmbeddingService test', async function() {
     ]
     
     const embeddingService = new EmbeddingService(openai)
-    const embeddings = await embeddingService.embed(text)
+    const embeddings = await embeddingService.embedTexts(text)
     embeddings.forEach((embedding) => {
       expect(embedding).to.have.property('index').that.is.a('number')
       expect(embedding).to.have.property('vector').that.is.an('array')
