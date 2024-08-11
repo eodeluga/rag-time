@@ -2,7 +2,7 @@ import dotenv from 'dotenv'
 import { TextChunkerService } from '@@services/textChunker.service'
 import OpenAI from 'openai'
 import { TextChunkEmbeddingService } from '@@services/textChunkEmbedding.service'
-import { TextChunkIndexingService } from '@@services/textChunkIndexing.service'
+import { EmbeddingIndexingService } from '@@services/textChunkIndexing.service'
 import { PDFChunkerService } from '@@services/pdfChunker.service'
 
 dotenv.config();
