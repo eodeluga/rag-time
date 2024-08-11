@@ -1,6 +1,6 @@
 {
   "name": "llamaindex-rag",
-  "description": "A simple demonstration of using LlamaIndex for RAG",
+  "description": "A simple demonstration of using LlamaIndex for RAG purposes",
   "version": "1.0.0",
   "author": "eodeluga",
   "module": "src/app.ts",
