@@ -1,8 +1,9 @@
-import { CreateEmbedding } from '@@models/CreateEmbedding'
-import { CreateEmbeddingResponseValidator } from '@@validators/CreateEmbeddingResponse.validator'
 import type OpenAI from 'openai'
-import { TextChunkerService } from './TextChunker.service'
-import { EmbeddingIndexingService } from './EmbeddingIndexing.service'
+import { promises as fs } from 'fs'
+import pdfparse from 'pdf-parse-debugging-disabled'
+import { CreateEmbeddingValidator } from '@@validators/CreateEmbedding.validator'
+import { TextChunkerService } from '@@services/TextChunker.service'
+import { EmbeddingIndexingService } from '@@services/EmbeddingIndexing.service'
 import { hashBuffer } from '@@utils/hashing.util'
 import { EmbeddingResult } from '@@models/EmbeddingResult'
 import { TextEmbedding } from '@@models/TextEmbedding'
@@ -26,74 +27,79 @@ export class EmbeddingProcessingService {
     this.model = model
   }
   
+  async createTextEmbedding(opts: { input: string | string[] }): Promise<TextEmbedding[]> {
+    const { input } = opts
+    
+    const textWithIndex = Array.isArray(input)
+      ? input.map((text, index) => ({
+        index,
+        text,
+      }))
+      : [{
+        index: 1,
+        text: input,
+      }]
+      
+    const embedding = await this.llm.embeddings.create({
+      model: this.model,
+      input,
+    })
+  
+    return CreateEmbeddingValidator.parse(embedding?.data)
+      .map((embedding) => {
+        const text = textWithIndex.find((combinedItem) => combinedItem.index === embedding.index)?.text
+        
+        if (!text) {
+          throw new Error('Text not found in chunk map')
+        }
+        
+        return {
+          index: embedding.index,
+          text,
+          vector: embedding.embedding,
+        } satisfies TextEmbedding
+      })
+  }
+  
   /**
    * @function embed
    * @description Creates a vector embedding of a text array
-   * @param {string[]} texts - The texts to embed
+   * @param {string[]} text - The texts to embed
    * @returns {number[]} The vector embedding representation of text array
    */
-  async embedTexts(texts: string[]): Promise<EmbeddingResult> {
+  async embedText(text: string): Promise<EmbeddingResult> {
     try {
-      const text = texts.join()
       const { Buffer } = await import('node:buffer')
       const buffer = Buffer.from(text)
       const hashAsCollectionId = await hashBuffer(buffer)
       
       const embeddingExists = await this.embeddingIndexingService.embeddingExists(hashAsCollectionId)
       
-      const textChunker = new TextChunkerService(this.llm)
-      const chunkedTexts = await textChunker.chunk(texts.join())
-      
-      const combinedTextWithSummary = chunkedTexts.map(
-        (chunk, index) => ({
-          index,
-          text: chunk.summary
-            ? chunk.text + '.' + chunk.summary
-            : chunk.text,
+      if (!embeddingExists) {
+        const textChunker = new TextChunkerService(this.llm)
+        const chunkedTexts = await textChunker.chunk(text)
+        
+        const combinedTextWithSummary = chunkedTexts.map(
+          (chunk, index) => ({
+            index,
+            text: chunk.summary
+              ? chunk.text + '.' + chunk.summary
+              : chunk.text,
+          })
+        )
+        
+        const textEmbedding = await this.createTextEmbedding({
+          input: combinedTextWithSummary.map((chunk) => chunk.text),
         })
-      )
-      
-      const createEmbeddingResponse = await this.llm.embeddings.create({
-        model: this.model,
-        input: combinedTextWithSummary.map((chunk) => chunk.text),
-      })
-      
-      const textEmbedding = CreateEmbeddingResponseValidator.parse(createEmbeddingResponse?.data)
-        .map((vector) => {
-          const text = chunkMap.find((chunk) => chunk.index === embedding.index)?.text,
-          if (!text) {
-            throw new Error('Text not found in chunk map')
-          }
-          return {
-            index: vector.index,
-            text,
-            vector: vector.embedding,
-          
-          }
-        ) satisfies TextEmbedding[]
         
-      
-      const textEmbeddingMap = textEmbedding.map(({ vector, index }) => {
-      
-      })
-      
-          const embeddings = await this.EmbeddingProcessingService.embedTexts(chunkMap.map((chunk) => chunk.text))
-        
-    return embeddings.map((embedding) => {
-      const text = chunkMap.find((chunk) => chunk.index === embedding.index)?.text,
-      if (!text) {
-        throw new Error('Text not found in chunk map')
+        await this.embeddingIndexingService.insert(hashAsCollectionId, textEmbedding)
       }
+      
       return {
-        index: embedding.index,
-        text,
-        vector: embedding.vector,
+        result: 'ok',
+        embeddingId: hashAsCollectionId,
       }
-    }) satisfies TextEmbedding[]
       
-        
-      this.embeddingIndexingService.insert(hashAsCollectionId, textEmbedding[0].vecto)
-        
     } catch (err){
       return {
         result: 'error',
@@ -102,26 +108,14 @@ export class EmbeddingProcessingService {
     }
   }
   
-  async embedPDF(filePath: string): Promise<CreateEmbedding[]> {
-  
+  async embedPDF(filePath: string): Promise<EmbeddingResult> {
     try {
-          const buffer = await fs.readFile(filePath)
-          const hashAsCollectionName = await HashingService.hashBuffer(buffer)
-          const exists = await this.textChunkIndexingService.embeddingExists(hashAsCollectionName)
-          
-          if (exists) {
-            return hashAsCollectionName
-          }
-        }
-
-        const { text } = await pdfparse(buffer)
-
-        return hashAsCollectionName
-        // const chunks = this.textChunkerService.chunk(text)
-        // return chunks
-      } catch {
-        throw new Error('Problem parsing PDF')
-      }
+      const buffer = await fs.readFile(filePath)
+      const { text } = await pdfparse(buffer)
+      const result = await this.embedText(text)
+      return result
+    } catch {
+      throw new Error('Problem parsing PDF')
+    }
   }
 }
-
