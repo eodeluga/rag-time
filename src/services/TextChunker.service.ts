@@ -62,6 +62,6 @@ export class TextChunkerService {
     return functionResponse.chunks.map((chunk) => ({
       summary: this.normaliseText(chunk.summary),
       text: this.normaliseText(chunk.text),
-    }))
+    })) satisfies TextChunk[]
   }
 }

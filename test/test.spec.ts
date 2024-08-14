@@ -1,8 +1,8 @@
-import { TextChunkEmbeddingService } from '@@services/textChunkEmbedding.service'
-import { TextChunkerService } from '@@services/textChunker.service'
-import OpenAI from 'openai'
 import dotenv from 'dotenv'
-import { EmbeddingService } from '@@services/embedding.service'
+import OpenAI from 'openai'
+import { TextChunkerService } from '@@services/TextChunker.service'
+import { EmbeddingProcessingService } from '@@services/EmbeddingProcessing.service'
+import { TextChunkEmbeddingService } from '@@services/textChunkEmbedding.service'
 dotenv.config()
 
 const openai = new OpenAI({
@@ -21,7 +21,7 @@ describe('Test template', async function() {
     const textChunkerService = new TextChunkerService(openai)
     const sentences = await textChunkerService.chunk(text)
     
-    const embeddingService = new EmbeddingService(openai)
+    const embeddingService = new EmbeddingProcessingService(openai)
     const textChunkEmbeddingService = new TextChunkEmbeddingService(embeddingService) 
     const startTime = performance.now()
     const embedding = await textChunkEmbeddingService.embedChunks(sentences)
