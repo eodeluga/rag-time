@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-export const CreateEmbeddingResponseValidator = z.array(
+export const CreateEmbeddingValidator = z.array(
   z.object({
     object: z.string(),
     index: z.number(),
