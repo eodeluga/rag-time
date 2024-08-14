@@ -5,6 +5,7 @@ import { TextChunkerService } from './TextChunker.service'
 import { EmbeddingIndexingService } from './EmbeddingIndexing.service'
 import { hashBuffer } from '@@utils/hashing.util'
 import { EmbeddingResult } from '@@models/EmbeddingResult'
+import { TextEmbedding } from '@@models/TextEmbedding'
 
 /**
  * @class EmbeddingProcessingService
@@ -43,38 +44,55 @@ export class EmbeddingProcessingService {
       const textChunker = new TextChunkerService(this.llm)
       const chunkedTexts = await textChunker.chunk(texts.join())
       
-      const consolidatedTextAndSummary = chunkedTexts.map(
-        (chunk) => chunk.summary
-          ? chunk.text + '.' + chunk.summary
-          : chunk.text,
+      const combinedTextWithSummary = chunkedTexts.map(
+        (chunk, index) => ({
+          index,
+          text: chunk.summary
+            ? chunk.text + '.' + chunk.summary
+            : chunk.text,
+        })
       )
       
       const createEmbeddingResponse = await this.llm.embeddings.create({
         model: this.model,
-        input: consolidatedTextAndSummary,
+        input: combinedTextWithSummary.map((chunk) => chunk.text),
       })
       
-      const vectorEmbedding = CreateEmbeddingResponseValidator.parse(createEmbeddingResponse?.data)
-        .map((vector) => ({
-          index: vector.index,
-          vector: vector.embedding,
-        })) satisfies CreateEmbedding[]
+      const textEmbedding = CreateEmbeddingResponseValidator.parse(createEmbeddingResponse?.data)
+        .map((vector) => {
+          const text = chunkMap.find((chunk) => chunk.index === embedding.index)?.text,
+          if (!text) {
+            throw new Error('Text not found in chunk map')
+          }
+          return {
+            index: vector.index,
+            text,
+            vector: vector.embedding,
+          
+          }
+        ) satisfies TextEmbedding[]
         
       
-      const textEmbeddingMap = vectorEmbedding.map(({ vector, index }) => {
+      const textEmbeddingMap = textEmbedding.map(({ vector, index }) => {
       
-      }
+      })
       
           const embeddings = await this.EmbeddingProcessingService.embedTexts(chunkMap.map((chunk) => chunk.text))
         
-    return embeddings.map((embedding) => ({
-      index: embedding.index,
-      text: chunkMap.find((chunk) => chunk.index === embedding.index)?.text!,
-      vector: embedding.vector,
-    })) satisfies TextEmbedding[]
+    return embeddings.map((embedding) => {
+      const text = chunkMap.find((chunk) => chunk.index === embedding.index)?.text,
+      if (!text) {
+        throw new Error('Text not found in chunk map')
+      }
+      return {
+        index: embedding.index,
+        text,
+        vector: embedding.vector,
+      }
+    }) satisfies TextEmbedding[]
       
         
-      this.embeddingIndexingService.insert(hashAsCollectionId, vectorEmbedding[0].vecto)
+      this.embeddingIndexingService.insert(hashAsCollectionId, textEmbedding[0].vecto)
         
     } catch (err){
       return {
