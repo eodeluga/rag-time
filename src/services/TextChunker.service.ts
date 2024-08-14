@@ -1,6 +1,6 @@
 import OpenAI from 'openai'
 import { TextChunkerFunction } from '@@functions/textChunker.function'
-import { TextChunkerResponseValidator } from '@@validators/TextChunkerResponse.validator'
+import { TextChunkerValidator } from '@@validators/TextChunker.validator'
 import type { TextChunk } from '@@models/TextChunk'
 
 /**
@@ -53,13 +53,13 @@ export class TextChunkerService {
       ],
     })
     
-    const functionResponse = TextChunkerResponseValidator.parse(
+    const textChunker = TextChunkerValidator.parse(
       response.choices[0].message?.tool_calls
         ? JSON.parse(response.choices[0].message.tool_calls[0].function.arguments)
         : []
     )
     
-    return functionResponse.chunks.map((chunk) => ({
+    return textChunker.chunks.map((chunk) => ({
       summary: this.normaliseText(chunk.summary),
       text: this.normaliseText(chunk.text),
     })) satisfies TextChunk[]
