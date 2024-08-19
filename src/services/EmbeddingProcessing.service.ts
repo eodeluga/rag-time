@@ -27,9 +27,7 @@ export class EmbeddingProcessingService {
     this.model = model
   }
   
-  async createTextEmbedding(opts: { input: string | string[] }): Promise<TextEmbedding[]> {
-    const { input } = opts
-    
+  async createTextEmbedding(input: string | string[]): Promise<TextEmbedding[]> {
     const textWithIndex = Array.isArray(input)
       ? input.map((text, index) => ({
         index,
@@ -88,9 +86,9 @@ export class EmbeddingProcessingService {
           })
         )
         
-        const textEmbedding = await this.createTextEmbedding({
-          input: combinedTextWithSummary.map((chunk) => chunk.text),
-        })
+        const textEmbedding = await this.createTextEmbedding(
+          combinedTextWithSummary.map((chunk) => chunk.text)
+        )
         
         await this.embeddingIndexingService.insert(hashAsCollectionId, textEmbedding)
       }
