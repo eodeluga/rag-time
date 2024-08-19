@@ -19,22 +19,15 @@ describe('TextChunkEmbeddingService test', async function() {
   
   it('checks the embeddings of text chunks matches the embeddings of the text', async function() {
     const chunks = [
-      {
-        text: 'Mr . and Mrs . Dursley, of number four, Privet Drive, ',
-        summary: 'were proud to say that they were perfectly normal, thank you very much.',
-      },
-      {
-        text: 'They were the last people you’d expect to be involved in anything strange or mysterious, ',
-        summary: 'because they just didn’t hold with such nonsense.',
-      },
-      {
-        text: 'Mr. Dursley was the director of a firm called Grunnings, which made drills. He was a big, beef',
-        summary: '',
-      },
+      'Mr. and Mrs. Dursley, of number four, Privet Drive, ',
+      'were proud to say that they were perfectly normal, thank you very much.',
+      'They were the last people you’d expect to be involved in anything strange or mysterious, ',
+      'because they just didn’t hold with such nonsense.',
+      'Mr. Dursley was the director of a firm called Grunnings, which made drills. He was a big, beef',
     ]
 
     const embeddingProcessingService = new EmbeddingProcessingService(openai)
-    embeddingProcessingService.createTextEmbedding(chunks.map((chunk) => chunk.text))
+    const textEmbedding = embeddingProcessingService.createTextEmbedding(chunks)
     
     const chunkEmbeddings = await textChunkerService.chunk(chunks)
     const texts = chunkEmbeddings.map((embedding, index) => ({

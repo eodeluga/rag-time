@@ -10,7 +10,7 @@ const openai = new OpenAI({
 })
 
 
-describe('EmbeddingService test', async function() {
+describe('EmbeddingProcessingService test', async function() {
   this.timeout(5000)
   it('embeds text as vector embeddings', async function() {
     const text = [
