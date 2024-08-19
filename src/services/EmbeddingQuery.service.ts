@@ -1,22 +1,19 @@
 import { QdrantDbConnection } from '@@utils/connectionManager.util'
+import { EmbeddingProcessingService } from '@@services/EmbeddingProcessing.service'
 
 export class EmbeddingQueryService {
-  private embeddingService: EmbeddingService
-  private embeddingIndexingService: EmbeddingIndexingService
+  private embeddingProcessingService: EmbeddingProcessingService
   constructor(
-    embeddingService: EmbeddingService,
-    embeddingIndexingService: EmbeddingIndexingService
+    embeddingProcessingService: EmbeddingProcessingService
   ) {
-    this.embeddingService = embeddingService
-    this.embeddingIndexingService = embeddingIndexingService
+    this.embeddingProcessingService = embeddingProcessingService
   }
   
-  async query(opts: { query: string, limit: number, openai: OpenAI }): Promise<string[]> {
-    const { query, limit, openai } = opts
-    const queryEmbedding = await this.embeddingService.embedChunks([{ text: query }])
+  async query(query: string, embeddingId: string, limit = 1): Promise<string[]> {
+    const queryEmbedding = await this.embeddingProcessingService.createTextEmbedding(query)
     const client = await QdrantDbConnection.getQdrantClient()
     
-    const results = await client.search(this.collectionId, {
+    const results = await client.search(embeddingId, {
       vector: queryEmbedding[0].vector,
       limit,
     })
