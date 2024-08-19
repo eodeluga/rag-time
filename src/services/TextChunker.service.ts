@@ -31,7 +31,7 @@ export class TextChunkerService {
    * @param {String} text - The text to chunk
    * @returns {Array} The chunks of text
    */
-  async chunk(text: string): Promise<TextChunk[]> {
+  async chunk(text: string | string[]): Promise<TextChunk[]> {
     const response = await this.openai.chat.completions.create({
       model: this.model,
       response_format: { type: 'json_object' },
@@ -47,7 +47,8 @@ export class TextChunkerService {
         { role: 'system', content: 'You are a helpful assistant.' },
         { 
           role: 'user',
-          content: `Make chunks from following sentences: "${text}"` 
+          content: 'Make chunks from following sentences: '
+            + `${Array.isArray(text) ? text.join() : text}`
             + '\n\nReturn the sentences as JSON array',
         },
       ],
