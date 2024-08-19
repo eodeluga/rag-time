@@ -1,8 +1,8 @@
 import { expect } from 'chai'
 import dotenv from 'dotenv'
 import OpenAI from 'openai'
-import { EmbeddingService } from '@@services/embedding.service'
-import { TextChunkEmbeddingService } from '@@services/textChunkEmbedding.service'
+import { EmbeddingProcessingService } from '@@services/EmbeddingProcessing.service'
+import { TextChunkerService } from '@@services/TextChunker.service'
 
 dotenv.config()
 
@@ -10,8 +10,8 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 })
 
-const embeddingService = new EmbeddingService(openai)
-const textChunkEmbeddingService = new TextChunkEmbeddingService(embeddingService)
+const embeddingService = new EmbeddingProcessingService(openai)
+const textChunkerService = new TextChunkerService(openai)
 
 describe('TextChunkEmbeddingService test', async function() {
   this.timeout(5000)
@@ -33,7 +33,10 @@ describe('TextChunkEmbeddingService test', async function() {
       },
     ]
 
-    const chunkEmbeddings = await textChunkEmbeddingService.embedChunks(chunks)
+    const embeddingProcessingService = new EmbeddingProcessingService(openai)
+    embeddingProcessingService.createTextEmbedding(chunks.map((chunk) => chunk.text))
+    
+    const chunkEmbeddings = await textChunkerService.chunk(chunks)
     const texts = chunkEmbeddings.map((embedding, index) => ({
       index,
       text: embedding.text,
