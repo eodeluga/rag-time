@@ -1,5 +1,4 @@
 export interface EmbeddingResult {
-  result: 'ok' | 'error'
-  embeddingId?: string
+  embeddingId: string | null
   message?: string
 }
