@@ -34,7 +34,7 @@ export class EmbeddingProcessingService {
         text,
       }))
       : [{
-        index: 1,
+        index: 0,
         text: input,
       }]
       
@@ -65,17 +65,18 @@ export class EmbeddingProcessingService {
    * @param {string[]} text - The texts to embed
    * @returns {number[]} The vector embedding representation of text array
    */
-  async embedText(text: string): Promise<EmbeddingResult> {
+  async embedText(text: string | string[]): Promise<EmbeddingResult> {
     try {
       const { Buffer } = await import('node:buffer')
-      const buffer = Buffer.from(text)
+      const textAsString = `${Array.isArray(text) ? text.join() : text}`
+      const buffer = Buffer.from(`${Array.isArray(text) ? text.join() : text}`)
       const hashAsCollectionId = await hashBuffer(buffer)
       
       const embeddingExists = await this.embeddingIndexingService.embeddingExists(hashAsCollectionId)
       
       if (!embeddingExists) {
         const textChunker = new TextChunkerService(this.llm)
-        const chunkedTexts = await textChunker.chunk(text)
+        const chunkedTexts = await textChunker.chunk(textAsString)
         
         const combinedTextWithSummary = chunkedTexts.map(
           (chunk, index) => ({
@@ -94,13 +95,12 @@ export class EmbeddingProcessingService {
       }
       
       return {
-        result: 'ok',
         embeddingId: hashAsCollectionId,
       }
       
     } catch (err){
       return {
-        result: 'error',
+        embeddingId: null,
         message: err instanceof Error ? err.message : String(err),
       }
     }
