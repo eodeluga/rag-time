@@ -4,11 +4,13 @@ import { TextChunkerValidator } from '@@validators/TextChunker.validator'
 import type { TextChunk } from '@@models/TextChunk'
 
 /**
- * @class TextChunkerService
- * @classdesc TextChunkerService class for chunking text
- * @param {OpenAI} llm - OpenAI instance
- * @returns {TextChunk[]} TextChunk object
- */
+* Service for chunking text using OpenAI's chat completions and normalising text.
+*
+* This class interacts with OpenAI to process and chunk text into manageable pieces,
+* and includes methods for normalising text to ensure consistency.
+*
+* @class
+*/
 export class TextChunkerService {
   private model: string
   private openai: OpenAI
@@ -20,23 +22,28 @@ export class TextChunkerService {
     .trim()
   )
   
+  /**
+  * Creates an instance of TextChunkerService.
+  *
+  * @param {OpenAI} llm - The OpenAI client used for generating text chunks.
+  * @param {string} [model='gpt-3.5-turbo'] - The model to use for text chunking, defaults to 'gpt-3.5-turbo'.
+  */
   constructor(llm: OpenAI, model = 'gpt-3.5-turbo') {
     this.openai = llm
     this.model = model
   }
-  
+
   /**
-   * @function chunk
-   * @description Chunk text into smaller parts
-   * @param {String} text - The text to chunk
-   * @returns {Array} The chunks of text
-   */
+  * Chunks the provided text into manageable pieces using OpenAI's chat completions.
+  *
+  * @param {string} text - The text to be chunked.
+  * @returns {Promise<TextChunk[]>} - A promise that resolves to an array of text chunks.
+  */
   async chunk(text: string): Promise<TextChunk[]> {
     const response = await this.openai.chat.completions.create({
       model: this.model,
       response_format: { type: 'json_object' },
       temperature: 1,
-      // max_tokens: 256,
       top_p: 0.5,
       frequency_penalty: 0,
       presence_penalty: 0,

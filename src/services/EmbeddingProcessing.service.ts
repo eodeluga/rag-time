@@ -3,30 +3,44 @@ import { promises as fs } from 'fs'
 import pdfparse from 'pdf-parse-debugging-disabled'
 import { CreateEmbeddingValidator } from '@@validators/CreateEmbedding.validator'
 import { TextChunkerService } from '@@services/TextChunker.service'
-import { EmbeddingIndexingService } from '@@services/EmbeddingIndexing.service'
+import { EmbeddingManagementService } from '@@services/EmbeddingManagement.service'
 import { hashBuffer } from '@@utils/hashing.util'
 import { EmbeddingResult } from '@@models/EmbeddingResult'
 import { TextEmbedding } from '@@models/TextEmbedding'
 
 /**
- * @class EmbeddingProcessingService
- * @classdesc EmbeddingProcessingService class for embedding text
- * @param {OpenAI} llm - OpenAI instance
- * @param {string} model - The model to use for embedding
- * @returns {TextEmbedding} TextEmbedding object
+ * Service for processing embeddings using OpenAI's models and managing them in a Qdrant database.
+ *
+ * This class handles the creation and embedding of text and PDFs, interacts with the embedding management service,
+ * and processes text into embeddings by chunking and validating.
+ *
+ * @class
  */
 export class EmbeddingProcessingService {
 
-  private embeddingIndexingService: EmbeddingIndexingService
+  private embeddingManagementService: EmbeddingManagementService
   private llm: OpenAI
   private model: string
   
+  /**
+  * Creates an instance of EmbeddingProcessingService.
+  *
+  * @param {OpenAI} llm - The OpenAI client used for generating embeddings.
+  * @param {string} [model='text-embedding-ada-002'] - The model to use for embeddings, defaults to 'text-embedding-ada-002'.
+  */
   constructor(llm: OpenAI, model = 'text-embedding-ada-002') {
-    this.embeddingIndexingService = new EmbeddingIndexingService()
+    this.embeddingManagementService = new EmbeddingManagementService()
     this.llm = llm
     this.model = model
   }
   
+  /**
+  * Creates embeddings for the provided text or array of texts.
+  *
+  * @param {string | string[]} input - The text or array of texts to be embedded.
+  * @returns {Promise<TextEmbedding[]>} - A promise that resolves to an array of text embeddings.
+  * @throws {Error} - Throws an error if a text is not found in the chunk map.
+  */
   async createTextEmbedding(input: string | string[]): Promise<TextEmbedding[]> {
     const textWithIndex = Array.isArray(input)
       ? input.map((text, index) => ({
@@ -60,11 +74,11 @@ export class EmbeddingProcessingService {
   }
   
   /**
-   * @function embed
-   * @description Creates a vector embedding of a text array
-   * @param {string[]} text - The texts to embed
-   * @returns {number[]} The vector embedding representation of text array
-   */
+  * Embeds the provided text or array of texts, chunking and indexing if necessary.
+  *
+  * @param {string | string[]} text - The text or array of texts to embed.
+  * @returns {Promise<EmbeddingResult>} - A promise that resolves to the embedding result.
+  */
   async embedText(text: string | string[]): Promise<EmbeddingResult> {
     try {
       const { Buffer } = await import('node:buffer')
@@ -72,7 +86,7 @@ export class EmbeddingProcessingService {
       const buffer = Buffer.from(`${Array.isArray(text) ? text.join() : text}`)
       const hashAsCollectionId = await hashBuffer(buffer)
       
-      const embeddingExists = await this.embeddingIndexingService.embeddingExists(hashAsCollectionId)
+      const embeddingExists = await this.embeddingManagementService.embeddingExists(hashAsCollectionId)
       
       if (!embeddingExists) {
         const textChunker = new TextChunkerService(this.llm)
@@ -91,7 +105,7 @@ export class EmbeddingProcessingService {
           combinedTextWithSummary.map((chunk) => chunk.text)
         )
         
-        await this.embeddingIndexingService.insert(hashAsCollectionId, textEmbedding)
+        await this.embeddingManagementService.insertEmbedding(hashAsCollectionId, textEmbedding)
       }
       
       return {
@@ -106,6 +120,13 @@ export class EmbeddingProcessingService {
     }
   }
   
+  /**
+  * Embeds the text extracted from a PDF file.
+  *
+  * @param {string} filePath - The path to the PDF file.
+  * @returns {Promise<EmbeddingResult>} - A promise that resolves to the embedding result.
+  * @throws {Error} - Throws an error if there is a problem parsing the PDF.
+  */
   async embedPDF(filePath: string): Promise<EmbeddingResult> {
     try {
       const buffer = await fs.readFile(filePath)
