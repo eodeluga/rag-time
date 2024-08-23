@@ -20,4 +20,20 @@ export class EmbeddingQueryService {
     
     return results.map((result) => (result.payload?.text as string ?? ''))
   }
+  
+  async queryCollections(query: string, embeddingIds: string[], limit = 1): Promise<string[]> {
+    const queryEmbedding = await this.embeddingProcessingService.createTextEmbedding(query)
+    const client = await QdrantDbConnection.getQdrantClient()
+    
+    const searchPromises = embeddingIds.map(embedding => 
+      client.search(embedding, {
+        vector: queryEmbedding[0].vector,
+        limit,
+      })
+    )
+    
+    const results = await Promise.all(searchPromises)
+    return results.flatMap((result) => result.map((r) => (r.payload?.text as string ?? '')))
+    
+  }
 }
