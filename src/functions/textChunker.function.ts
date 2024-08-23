@@ -2,7 +2,7 @@ import type { ChatCompletionTool } from 'openai/resources/index'
 
 /**
  * @function text_chunker
- * @description LLM function to process text into chunks for RAG purposes
+ * @description Definition for the `text_chunker` function that processes text into chunks for RAG purposes
  * @param {Object} chunks - The chunks to process
  * @param {Array} chunks.chunks - The chunks to process
  * @param {String} chunks.chunks.text - The text of the chunk
