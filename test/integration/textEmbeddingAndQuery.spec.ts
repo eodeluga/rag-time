@@ -1,11 +1,13 @@
 import dotenv from 'dotenv'
 import OpenAI from 'openai'
 import { expect } from 'chai'
+import { describe, it } from 'mocha'
 import { EmbeddingProcessingService } from '@@services/EmbeddingProcessing.service'
 import { EmbeddingQueryService } from '@@services/EmbeddingQuery.service'
+import { EmbeddingManagementService } from '@@services/EmbeddingManagement.service'
 
 describe('Tests the embedding of text chunks from text array and querying and response of the embedded text', async function() {
-  this.timeout(5000)
+  this.timeout(60000)
   dotenv.config()
   
   let embeddingQueryService: EmbeddingQueryService
@@ -65,7 +67,12 @@ describe('Tests the embedding of text chunks from text array and querying and re
     })
 
     const embeddingProcessingService = new EmbeddingProcessingService(openai)
-    embeddingQueryService = new EmbeddingQueryService(embeddingProcessingService);
+    
+    embeddingQueryService = new EmbeddingQueryService(
+      new EmbeddingManagementService(),
+      embeddingProcessingService,
+    );
+    
     ({ embeddingId } = await embeddingProcessingService.embedText(texts))
     
     if (embeddingId === null) {
