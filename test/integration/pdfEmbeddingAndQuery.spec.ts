@@ -5,11 +5,13 @@ import { EmbeddingProcessingService } from '@@services/EmbeddingProcessing.servi
 import { EmbeddingQueryService } from '@@services/EmbeddingQuery.service'
 
 describe('Tests the embedding of text chunks from PDF and the querying and response of the embedded text', async function() {
-  this.timeout(5000)
+  this.timeout(10000)
   dotenv.config()
+  
   
   let embeddingQueryService: EmbeddingQueryService
   let embeddingId: string | null
+  let embeddingIds: string[]
   
   this.beforeAll(async () => {
     const openai = new OpenAI({
@@ -17,26 +19,43 @@ describe('Tests the embedding of text chunks from PDF and the querying and respo
     })
 
     const pdfPath = 'test/assets/Sample.pdf'
+    
     const embeddingProcessingService = new EmbeddingProcessingService(openai)
     embeddingQueryService = new EmbeddingQueryService(embeddingProcessingService);
     ({ embeddingId } = await embeddingProcessingService.embedPDF(pdfPath))
     
-    if (embeddingId === null) {
+    
+    const pdfs = ['test/assets/Sample.pdf', 'test/assets/Secure Secure Shell.pdf']
+    const embeddingPromises = await Promise.all(
+      pdfs.map(async (pdf) => embeddingProcessingService.embedPDF(pdf))
+    )
+    
+    embeddingIds = embeddingPromises
+      .map(({ embeddingId }) => embeddingId)
+      .filter((id): id is string => id !== null)
+    
+    if (embeddingId === null || embeddingIds.length === 0) {
       throw new Error('Failed to embed PDF')
     }
   })
   
-  it('should provide text that contains answer to query 1', async () => {
+  it('should provide text based on query: \'What year did I get the Amiga 500?\'', async () => {
     const query = 'What year did I get the Amiga 500?'
     const results = await embeddingQueryService.query(query, embeddingId!)
     expect(results.some((result) => result.includes('1991'))).to.be.true
     console.log(results)
   })
   
-  it('should provide text that contains answer to query 2', async () => {
+  it('should provide text based on query: \'Who made horse racing game?\'', async () => {
     const query = 'Who made horse racing game?'
     const results = await embeddingQueryService.query(query, embeddingId!)
     expect(results.some((result) => result.includes('brother'))).to.be.true
     console.log(results)
+  })
+  
+  it('should provide text from multiple documents', async () => {
+    const query = 'What is the name of the GPUs I used and what are ways to do key exchange?'
+    const results = await embeddingQueryService.queryCollections(query, embeddingIds, 1)
+    expect(results.join()).to.satisfy((str: string) => str.includes('voodoo') && str.includes('ssh'))
   })
 })
