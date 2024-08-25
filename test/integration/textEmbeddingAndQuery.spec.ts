@@ -70,7 +70,7 @@ describe('Tests the embedding of text chunks from text array and querying and re
     
     embeddingQueryService = new EmbeddingQueryService(
       new EmbeddingManagementService(),
-      embeddingProcessingService,
+      embeddingProcessingService
     );
     
     ({ embeddingId } = await embeddingProcessingService.embedText(texts))
