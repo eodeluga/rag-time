@@ -25,7 +25,7 @@ describe('Tests the embedding of text chunks from PDF and the querying and respo
     
     embeddingQueryService = new EmbeddingQueryService(
       new EmbeddingManagementService(),
-      embeddingProcessingService,
+      embeddingProcessingService
     );
     
     ({ embeddingId } = await embeddingProcessingService.embedPDF(pdfPath))
