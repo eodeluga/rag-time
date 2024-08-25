@@ -1,5 +1,6 @@
 import { QdrantDbConnection } from '@@utils/connectionManager.util'
 import type { TextEmbedding } from '@@models/TextEmbedding'
+import { EmbeddingInsertResult } from '@@models/EmbeddingInsertResult'
 
 /**
  * Manages embeddings within a Qdrant database.
@@ -25,11 +26,11 @@ export class EmbeddingManagementService {
   * Inserts an array of text embeddings into a specified collection within the Qdrant database.
   * Creates the collection if it does not exist and configures it with vector and optimizer settings.
   *
-  * @param {string} collectionId - The ID of the collection where the embeddings will be inserted.
+  * @param {string} embeddingId - The embedding ID of the collection where the embeddings will be inserted.
   * @param {TextEmbedding[]} textEmbeddingArr - An array of text embeddings to be inserted.
-  * @returns {Promise<{ collectionId: string, status: string }>} - A promise that resolves to an object containing the collection ID and the status of the insertion.
+  * @returns {Promise<EmbeddingInsertResult>} - A promise that resolves to an embedding insert result object.
   */
-  async insertEmbedding(collectionId: string, textEmbeddingArr: TextEmbedding[]) {
+  async insertEmbedding(embeddingId: string, textEmbeddingArr: TextEmbedding[]): Promise<EmbeddingInsertResult> {
     const qdrantPoints = textEmbeddingArr.map((textEmbedding) => ({
       id: textEmbedding.index,
       vector: textEmbedding.vector,
@@ -41,7 +42,7 @@ export class EmbeddingManagementService {
 
     const client = await QdrantDbConnection.getQdrantClient()
 
-    await client.createCollection(collectionId, {
+    await client.createCollection(embeddingId, {
       vectors: {
         size: qdrantPoints[0].vector.length,
         distance: 'Cosine',
@@ -52,13 +53,13 @@ export class EmbeddingManagementService {
       replication_factor: 2,
     })
     
-    const result = await client.upsert(collectionId, {
+    const { status } = await client.upsert(embeddingId, {
       points: qdrantPoints,
     })
     
     return {
-      collectionId: collectionId,
-      status: result.status,
+      embeddingId,
+      status,
     }
   }
   
