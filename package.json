@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Simple RAG framework for LLMs",
   "main": "src/app.ts",
-  "repository": "git@ssh.dev.azure.com:v3/theincredibleaf/RoboRecruit.AI/rag-time",
+  "repository": "git@github.com:eodeluga/rag-time.git",
   "author": "Eugene Odeluga",
   "license": "MIT",
   "type": "commonjs",
@@ -19,9 +19,7 @@
     "@typescript-eslint/eslint-plugin": "^5.44.0",
     "@typescript-eslint/parser": "^5.44.0",
     "chai": "^5.1.1",
-    "eslint": "^8.28.0",
-    "mocha": "^10.7.0",
-    "tsx": "^4.16.3"
+    "eslint": "^8.28.0"
   },
   "dependencies": {
     "@qdrant/qdrant-js": "^1.9.0",
