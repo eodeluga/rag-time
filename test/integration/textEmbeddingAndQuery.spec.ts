@@ -1,13 +1,12 @@
 import dotenv from 'dotenv'
 import OpenAI from 'openai'
-import { expect } from 'chai'
-import { describe, it } from 'mocha'
+import { beforeAll, describe, expect, it, setDefaultTimeout } from 'bun:test'
 import { EmbeddingProcessingService } from '@@services/EmbeddingProcessing.service'
 import { EmbeddingQueryService } from '@@services/EmbeddingQuery.service'
 import { EmbeddingManagementService } from '@@services/EmbeddingManagement.service'
 
 describe('Tests the embedding of text chunks from text array and querying and response of the embedded text', async function() {
-  this.timeout(60000)
+  setDefaultTimeout(60000)
   dotenv.config()
   
   let embeddingQueryService: EmbeddingQueryService
@@ -61,7 +60,11 @@ describe('Tests the embedding of text chunks from text array and querying and re
     'The journey’s been long, but I’m not through.',
   ]
   
-  this.beforeAll(async () => {
+  const firstQuery = 'What year did I get the Amiga 500?'
+  const secondQuery = 'Who made horse racing game?'
+  
+  
+  beforeAll(async () => {
     const openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
     })
@@ -80,17 +83,15 @@ describe('Tests the embedding of text chunks from text array and querying and re
     }
   })
   
-  it('should provide text that contains answer to query 1', async () => {
-    const query = 'What year did I get the Amiga 500?'
-    const results = await embeddingQueryService.query(query, embeddingId!)
-    expect(results.some((result) => result.includes('1991'))).to.be.true
+  it(`should provide text that contains answer to: ${firstQuery}`, async () => {
+    const results = await embeddingQueryService.query(firstQuery, embeddingId!)
+    expect(results.some((result) => result.includes('1991'))).toBeTrue()
     console.log(results)
   })
   
-  it('should provide text that contains answer to query 2', async () => {
-    const query = 'Who made horse racing game?'
-    const results = await embeddingQueryService.query(query, embeddingId!)
-    expect(results.some((result) => result.includes('brother'))).to.be.true
+  it(`should provide text that contains answer to: ${secondQuery}`, async () => {
+    const results = await embeddingQueryService.query(secondQuery, embeddingId!)
+    expect(results.some((result) => result.includes('brother'))).toBeTrue()
     console.log(results)
   })
 })

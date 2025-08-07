@@ -1,13 +1,12 @@
 import dotenv from 'dotenv'
 import OpenAI from 'openai'
-import { expect } from 'chai'
-import { describe, it } from 'mocha'
 import { EmbeddingProcessingService } from '@@services/EmbeddingProcessing.service'
 import { EmbeddingQueryService } from '@@services/EmbeddingQuery.service'
 import { EmbeddingManagementService } from '@@services/EmbeddingManagement.service'
+import { it, describe, expect, beforeAll, setDefaultTimeout } from 'bun:test'
 
 describe('Tests the embedding of text chunks from PDF and the querying and response of the embedded text', async function() {
-  this.timeout(60000)
+  setDefaultTimeout(60000)
   dotenv.config()
   
   
@@ -15,7 +14,7 @@ describe('Tests the embedding of text chunks from PDF and the querying and respo
   let embeddingId: string | null
   let embeddingIds: string[]
   
-  this.beforeAll(async () => {
+  beforeAll(async () => {
     const openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
     })
@@ -48,20 +47,20 @@ describe('Tests the embedding of text chunks from PDF and the querying and respo
   it('should provide text based on query: \'What year did I get the Amiga 500?\'', async () => {
     const query = 'What year did I get the Amiga 500?'
     const results = await embeddingQueryService.query(query, embeddingId!)
-    expect(results.some((result) => result.includes('1991'))).to.be.true
+    expect(results.some((result) => result.includes('1991'))).toBeTrue()
     console.log(results)
   })
   
   it('should provide text based on query: \'Who made horse racing game?\'', async () => {
     const query = 'Who made horse racing game?'
     const results = await embeddingQueryService.query(query, embeddingId!)
-    expect(results.some((result) => result.includes('brother'))).to.be.true
+    expect(results.some((result) => result.includes('brother'))).toBeTrue()
     console.log(results)
   })
   
   it('should provide text from multiple documents', async () => {
     const query = 'What is the name of the GPUs I used and what are ways to do key exchange?'
     const results = await embeddingQueryService.queryCollections(query, embeddingIds, 1)
-    expect(results.join()).to.satisfy((str: string) => str.includes('voodoo') && str.includes('ssh'))
+    expect(results.join()).toSatisfy((str: string) => str.includes('voodoo') && str.includes('ssh'))
   })
 })
