@@ -1,17 +1,22 @@
 # Create TypeScript App
-## TypeScript quickstart template for VS Code
-#### (because I found it really cumbersome to get TS tooling working from scratch at least with a WSL environment)
 
-## To use
-* npm install
-----------
+## TypeScript + Bun quickstart template for VS Code  
+*(because it can be cumbersome to get TS tooling working from scratch in a WSL environment)*
 
-* npm start
+---
 
-  Or
+## Features
+- [Bun](https://bun.sh) runtime
+- TypeScript 5
+- ESLint 9 with flat config (`eslint.config.ts`)
+- [`typescript-eslint`](https://typescript-eslint.io/) v8 presets (`recommendedTypeChecked`)
+- Bun’s built-in test runner (`bun test`)
+- Ready-to-use VSCode settings for linting
 
-* npm test
+---
 
-Entry point file is **src/app.ts**
+## Getting started
 
-**Note:** You may want to edit the package.json if you want to target specific versions of the dependencies (especially for production).
+### Install dependencies
+```sh
+bun install
