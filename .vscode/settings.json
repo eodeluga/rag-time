@@ -11,5 +11,4 @@
     "source.fixAll.eslint": "never"
   },
   "editor.formatOnSave": false,
-  "eslint.alwaysShowStatus": true
 }
