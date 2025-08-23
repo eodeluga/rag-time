@@ -1,34 +1,37 @@
 {
   "compilerOptions": {
-    // Module and Target Options
+    // Environment & syntax
+    "lib": ["ESNext"],
     "target": "ESNext",
     "module": "ESNext",
-    "moduleResolution": "node",
-    "esModuleInterop": true,
-    
-    // Strict Type-Checking Options
-    "strict": true,
-    "noFallthroughCasesInSwitch": true,
-
-    // Interoperability and Compatibility
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-
-    // JSX and JavaScript Options
+    "moduleDetection": "force",
     "jsx": "react-jsx",
     "allowJs": true,
 
-    // Module Resolution and Import Options
+    // Bundler-friendly resolution
+    "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
-
-    // Output Control
+    "verbatimModuleSyntax": true,
     "noEmit": true,
 
-    // Path Resolution
-    "baseUrl": "./src",
+    // Best practices
+    "strict": true,
+    "skipLibCheck": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+
+    // Stricter flags (choose to enable later if you like)
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noPropertyAccessFromIndexSignature": false,
+
+    // Path alias
+    "baseUrl": ".",
     "paths": {
+      "@/*": ["./src/*"]
     }
   },
-  "include": ["src", "test"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["src", "**/*.ts", "**/*.tsx"],
+  "exclude": ["dist", "node_modules"]
 }
