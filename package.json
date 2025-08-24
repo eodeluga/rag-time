@@ -7,7 +7,7 @@
   "scripts": {
     "start": "bun run src/app.ts",
     "test": "bun test spec",
-    "lint": "bun eslint . --ext .ts,.tsx"
+    "lint": "bun eslint src"
   },
   "author": "eodeluga",
   "license": "ISC",

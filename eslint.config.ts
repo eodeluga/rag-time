@@ -25,7 +25,6 @@ const config: Linter.Config[] = [
           functions: 'never',
         },
       ],
-
       'quotes': ['error', 'single', { avoidEscape: true, allowTemplateLiterals: true }],
       'semi': ['error', 'never'],
       'space-before-function-paren': ['error', { anonymous: 'never', named: 'never', asyncArrow: 'always' }],
@@ -35,6 +34,12 @@ const config: Linter.Config[] = [
       'object-curly-spacing': ['warn', 'always'],
       'array-bracket-spacing': ['error', 'never'],
     },
+    ignores:[
+      'next-env.d.ts',
+      '.next/**',
+      '.dist/**',
+      'node_modules/**',
+    ],
   },
 ]
 
