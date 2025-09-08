@@ -1,9 +1,26 @@
 import tseslint from 'typescript-eslint'
 import type { Linter } from 'eslint'
+import importPlugin from 'eslint-plugin-import'
 
 const config: Linter.Config[] = [
   ...tseslint.configs.recommendedTypeChecked,
-
+    // add the import plugin so ESLint can resolve TS path aliases
+  {
+    plugins: {
+      import: importPlugin,
+    },
+    settings: {
+      // tell eslint-plugin-import how to resolve @/* using your tsconfig
+      'import/resolver': {
+        typescript: {
+          project: ['./tsconfig.json'],
+        },
+        node: {
+          extensions: ['.ts', '.tsx', '.js', '.jsx'],
+        },
+      },
+    },
+  },
   {
     files: ['**/*.{ts,tsx}'],
     languageOptions: {
