@@ -50,6 +50,7 @@ const config: Linter.Config[] = [
       'object-curly-newline': ['error', { multiline: true, consistent: true }],
       'object-curly-spacing': ['warn', 'always'],
       'array-bracket-spacing': ['error', 'never'],
+      'operator-linebreak': ['error', 'before'],
     },
     ignores:[
       'next-env.d.ts',
