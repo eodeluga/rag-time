@@ -1,10 +1,12 @@
+// eslint.config.ts
 import tseslint from 'typescript-eslint'
 import type { Linter } from 'eslint'
+import globals from 'globals'
 import importPlugin from 'eslint-plugin-import'
 
 const config: Linter.Config[] = [
   ...tseslint.configs.recommendedTypeChecked,
-    // add the import plugin so ESLint can resolve TS path aliases
+  // add the import plugin so ESLint can resolve TS path aliases
   {
     plugins: {
       import: importPlugin,
@@ -25,8 +27,12 @@ const config: Linter.Config[] = [
     files: ['**/*.{ts,tsx}'],
     languageOptions: {
       parserOptions: {
+        projectService: true,
         project: ['./tsconfig.json'],
         tsconfigRootDir: import.meta.dirname,
+      },
+      globals: {
+        ...globals.browser,
       },
     },
     rules: {
@@ -51,8 +57,43 @@ const config: Linter.Config[] = [
       'object-curly-spacing': ['warn', 'always'],
       'array-bracket-spacing': ['error', 'never'],
       'operator-linebreak': ['error', 'before'],
+      '@typescript-eslint/prefer-as-const': 'error',
+      'prefer-const': [
+        'error', {
+          'destructuring': 'any',
+          'ignoreReadBeforeAssign': false,
+        },
+      ],
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-floating-promises': 'off',
+      'no-loop-func': 'off',
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'LabeledStatement',
+          message: 'Labels are a form of GOTO; using them makes code confusing and hard to maintain and understand.',
+        },
+        {
+          selector: 'WithStatement',
+          message: '`with` is disallowed in strict mode because it makes code impossible to predict and optimize.',
+        },
+      ],
+      'prefer-destructuring': ['error', {
+        'array': false,
+        'object': false,
+      }, {
+          enforceForRenamedProperties: false,
+        }],
+      '@typescript-eslint/restrict-template-expressions': ['error', {
+        'allowNumber': true,
+        'allowBoolean': false,
+        'allowAny': true,
+        'allowNullish': false,
+        'allowRegExp': false,
+      }],
+      '@typescript-eslint/strict-boolean-expressions': 'off',
     },
-    ignores:[
+    ignores: [
       'next-env.d.ts',
       '.next/**',
       '.dist/**',
