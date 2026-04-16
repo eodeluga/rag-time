@@ -1,31 +1,52 @@
 {
   "compilerOptions": {
-    "noEmitOnError": true,
-    "noImplicitAny": true,
-    "esModuleInterop": true,
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
-    "target": "ES2016",
-    "module": "CommonJS",
+    "allowImportingTsExtensions": true,
     "allowJs": true,
-    "sourceMap": true,
-    "resolveJsonModule": true,
-    "moduleResolution": "Node",
-    "alwaysStrict": true,
-    "strict": true,
-    "baseUrl": "src",
-    "outDir": "./dist/",
-    "plugins": [
-      { "transform": "typescript-transform-paths" }
+    "esModuleInterop": true,
+    "incremental": true,
+    "jsx": "preserve",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
     ],
-    "typeRoots": ["node_modules/@types", "ts-helper-types"],
+    "module": "ESNext",
+    "moduleDetection": "force",
+    "moduleResolution": "bundler",
+    "noEmit": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": false,
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "baseUrl": ".",
+    "outDir": "dist",
     "paths": {
-      "@@functions/*": ["functions/*"],
-      "@@models/*": ["models/*"],
-      "@@schemas/*": ["schemas/*"],
-      "@@services/*": ["services/*"],
-      "@@utils/*": ["utils/*"],
-      "@@validators/*": ["validators/*"],
+      "@/*": [
+        "src/*"
+      ]
     },
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "target": "ESNext",
+    "types": [
+      "node",
+      "bun"
+    ],
+    "verbatimModuleSyntax": true
   },
+  "exclude": [
+    "dist",
+    "node_modules",
+  ],
+  "include": [
+    "eslint.config.ts",
+    "next-env.d.ts",
+    "src/**/*.ts",
+    "test/**/*.spec.ts",
+    "src/**/*.tsx",
+    ".next/types/**/*.ts"
+, "module.d.ts"  ]
 }
