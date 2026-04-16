@@ -5,10 +5,6 @@ module.exports = {
     sourceType: 'module',
   },
   plugins: ['@typescript-eslint/eslint-plugin'],
-  // extends: [
-  //   'airbnb-base',
-  //   'airbnb-typescript/base',
-  // ],
   root: true,
   env: {
     node: true,
@@ -44,7 +40,7 @@ module.exports = {
 
     'no-continue': 'off',
 
-    'import/no-cycle': 'off', // Disable to allow TypeORM relations
+    'import/no-cycle': 'off',
 
     'radix': 'off',
     'eol-last': ['error', 'always'],
