@@ -1,8 +1,8 @@
 import dotenv from 'dotenv'
 import OpenAI from 'openai'
-import { EmbeddingProcessingService } from '@@services/EmbeddingProcessing.service'
-import { EmbeddingQueryService } from '@@services/EmbeddingQuery.service'
-import { EmbeddingManagementService } from '@@services/EmbeddingManagement.service'
+import { EmbeddingProcessingService } from '@/services/EmbeddingProcessing.service'
+import { EmbeddingQueryService } from '@/services/EmbeddingQuery.service'
+import { EmbeddingManagementService } from '@/services/EmbeddingManagement.service'
 import { it, describe, expect, beforeAll, setDefaultTimeout } from 'bun:test'
 
 describe('Tests the embedding of text chunks from PDF and the querying and response of the embedded text', async function() {
@@ -28,7 +28,6 @@ describe('Tests the embedding of text chunks from PDF and the querying and respo
     );
     
     ({ embeddingId } = await embeddingProcessingService.embedPDF(pdfPath))
-    
     
     const pdfs = ['test/assets/Sample.pdf', 'test/assets/Secure Secure Shell.pdf']
     const embeddingPromises = await Promise.all(
