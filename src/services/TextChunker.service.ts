@@ -1,7 +1,7 @@
 import OpenAI from 'openai'
-import { TextChunkerFunction } from '@@functions/textChunker.function'
-import { TextChunkerValidator } from '@@validators/TextChunker.validator'
-import type { TextChunk } from '@@models/TextChunk'
+import { TextChunkerFunction } from '@/functions/textChunker.function'
+import { TextChunkerValidator } from '@/validators/TextChunker.validator'
+import type { TextChunk } from '@/models/TextChunk'
 
 /**
 * Service for chunking text using OpenAI's chat completions and normalising text.
@@ -60,12 +60,14 @@ export class TextChunkerService {
       ],
     })
     
-    const textChunker = TextChunkerValidator.parse(
-      response.choices[0].message?.tool_calls
-        ? JSON.parse(response.choices[0].message.tool_calls[0].function.arguments)
-        : []
-    )
+    const validation = typeof response.choices[0]?.message.tool_calls === 'object'
+      && Array.isArray(response.choices[0]?.message.tool_calls)
+      && typeof response.choices[0]?.message.tool_calls[0]?.function.arguments === 'string'
+    ? JSON.parse(response.choices[0].message.tool_calls[0].function.arguments)
+    : []
     
+    const textChunker = TextChunkerValidator.parse(validation)
+
     return textChunker.chunks.map((chunk) => ({
       summary: this.normaliseText(chunk.summary),
       text: this.normaliseText(chunk.text),

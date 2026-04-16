@@ -14,22 +14,22 @@ class ConnectionManager {
   /**
   * Creates a new instance of QdrantClient using the URL from environment variables.
   *
-  * @returns {Promise<QdrantClient>} - A promise that resolves to an instance of QdrantClient.
+  * @returns {QdrantClient} - An instance of QdrantClient.
   */
-  private static async getQdrant() {
+  private static getQdrant() {
     const { QDRANT_URL } = process.env
-    return new QdrantClient({url: QDRANT_URL ?? 'http://localhost:6333'})
+    return new QdrantClient({ url: QDRANT_URL ?? 'http://localhost:6333' })
   }
   
   /**
   * Retrieves the singleton instance of QdrantClient, creating it if it does not already exist.
   *
-  * @returns {Promise<QdrantClient>} - A promise that resolves to the QdrantClient instance.
+  * @returns {QdrantClient} - The QdrantClient instance.
   */
-  public static async getQdrantClient() {
+  public static getQdrantClient() {
     ConnectionManager.qdrantClient = ConnectionManager.qdrantClient !== null
       ? ConnectionManager.qdrantClient
-      : await this.getQdrant()
+      : this.getQdrant()
     return ConnectionManager.qdrantClient
   }  
 }
