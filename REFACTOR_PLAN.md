@@ -1,31 +1,44 @@
-# rag-time — RagPlugin Architecture Implementation Plan
+# rag-time — Refactor Plan
 
 ## Context and Motivation
 
-The current `rag-time` library exposes four separate service classes (`EmbeddingProcessingService`, `EmbeddingManagementService`, `EmbeddingQueryService`, `TextChunkerService`) that callers must wire together manually. There is no answer generation (only chunk retrieval), no conversational memory, no token budget management, and no way to customise the pipeline without reimplementing large sections. All LLM access is hard-coded to OpenAI.
+The current `rag-time` library hard-codes two external dependencies: OpenAI (for LLM and embeddings) and Qdrant (for vector storage). Callers must wire four service classes together manually, there is no answer generation, no conversational memory, and no way to customise the pipeline without large reimplementations.
 
-This plan introduces two things:
+This refactor introduces three things:
 
-1. **A provider abstraction layer** — `ChatProvider` and `EmbeddingProvider` interfaces that decouple LLM API calls from the rest of the library. Three concrete implementations are shipped: `OpenAIProvider`, `AnthropicProvider`, and `GeminiProvider`. All internal services and the new `RagPlugin` class use only the interfaces; callers inject whichever provider they need.
+1. **LLM provider abstraction** — `ChatProvider` and `EmbeddingProvider` interfaces decouple all LLM calls from the rest of the library. Three concrete providers ship out of the box: `OpenAIProvider`, `AnthropicProvider`, `GeminiProvider`. All internal code touches only the interfaces.
 
-2. **A `RagPlugin` abstract class** as the single high-level entry point, implementing the **Template Method pattern**. Every step in the RAG pipeline is a protected hook with a fully working default. A plugin developer extends `RagPlugin`, overrides only what is domain-specific, and inherits everything else — ingestion, retrieval, context assembly, token budget management, history compaction, and answer generation.
+2. **Vector store abstraction** — a `VectorStore` interface decouples all vector database operations. `QdrantVectorStore` ships as the sole built-in implementation, but the interface is intentionally minimal so any developer can add a new backend (Pinecone, Weaviate, pgvector, etc.) without touching library internals.
 
-The existing low-level services are **not removed**. They remain exported for callers who need raw access. `RagPlugin` uses them internally.
+3. **`RagPlugin` abstract class** — the single high-level entry point, implementing the Template Method pattern. Every step in the RAG pipeline is a protected hook with a fully working default. A plugin developer extends `RagPlugin`, overrides only what is domain-specific, and inherits everything else: ingestion, retrieval, prompt assembly, token budget management, history compaction, and answer generation.
+
+The existing low-level services remain exported for callers who need direct access. `RagPlugin` uses them internally as the composition root.
 
 ---
 
-## LLM API Touchpoints
+## Touchpoints
 
-All LLM API calls in the codebase flow through exactly four locations, which become the provider abstraction boundary:
+### LLM API Touchpoints
 
-| File | API call | Interface used after refactor |
+All LLM calls are confined to exactly four locations, which become the provider abstraction boundary:
+
+| File | API call | After refactor |
 |---|---|---|
 | `src/services/TextChunker.service.ts` | `openai.chat.completions.create()` | `ChatProvider.complete()` |
 | `src/services/EmbeddingProcessing.service.ts` | `openai.embeddings.create()` | `EmbeddingProvider.embed()` |
-| `src/functions/textChunker.function.ts` | `ChatCompletionTool` type (OpenAI-specific schema) | Deleted — replaced by JSON prompt |
-| `src/RagPlugin.ts` (planned, not yet written) | `openai.chat.completions.create()` for answer gen + history compaction | `ChatProvider.complete()` |
+| `src/functions/textChunker.function.ts` | `ChatCompletionTool` type (OpenAI-specific) | **Deleted** — replaced by JSON prompt |
+| `src/RagPlugin.ts` *(planned)* | chat completions for answer gen + history compaction | `ChatProvider.complete()` |
 
-The Zod validators (`CreateEmbedding.validator.ts`, `TextChunker.validator.ts`, `TextChunkEmbedding.validator.ts`) import only from `zod` — no LLM provider imports. They are unchanged.
+The Zod validators import only from `zod` — no LLM provider imports. They are unchanged.
+
+### Vector DB Touchpoints
+
+All Qdrant calls are confined to two locations:
+
+| File | Usage | After refactor |
+|---|---|---|
+| `src/utils/connectionManager.util.ts` | Qdrant singleton client | **Deleted** — absorbed into `QdrantVectorStore` |
+| `src/services/EmbeddingManagement.service.ts` | All Qdrant operations | Delegates to `VectorStore` interface |
 
 ---
 
@@ -47,29 +60,23 @@ The Zod validators (`CreateEmbedding.validator.ts`, `TextChunker.validator.ts`, 
 │  │  buildSystemPrompt() → string                            │   │
 │  │  expandQuery(query) → string[]                           │   │
 │  └──────────────────────────────────────────────────────────┘   │
-│                                                                 │
-│  Private Internals                                              │
-│  compactHistory / deduplicateChunks / countTokens               │
-│  assemblePrompt                                                 │
-└──────────────────────────────┬──────────────────────────────────┘
-                               │ uses via interfaces
-       ┌───────────────────────▼─────────────────────────────┐
-       │               Provider Interfaces                   │
-       │  ChatProvider      EmbeddingProvider                │
-       │       ▲                   ▲                         │
-       │  ┌────┴────┐    ┌─────────┴──────┐                  │
-       │  │Anthropic│    │OpenAI  Gemini  │                  │
-       │  │Provider │    │Provider Provider│                  │
-       │  └─────────┘    └────────────────┘                  │
-       └───────────────────────┬─────────────────────────────┘
-                               │ used by
-       ┌───────────────────────▼─────────────────────────────┐
-       │               Existing Services Layer               │
-       │  TextChunkerService     (uses ChatProvider)         │
-       │  EmbeddingProcessingService (uses EmbeddingProvider)│
-       │  EmbeddingManagementService (Qdrant — unchanged)    │
-       │  EmbeddingQueryService  (unchanged)                 │
-       └─────────────────────────────────────────────────────┘
+└───────────┬─────────────────────────────────────┬───────────────┘
+            │ uses via interfaces                 │
+┌───────────▼───────────────┐      ┌──────────────▼──────────────┐
+│     LLM Providers         │      │     Vector Stores           │
+│  ChatProvider (interface) │      │  VectorStore (interface)    │
+│  EmbeddingProvider (iface)│      │       ▲                     │
+│         ▲          ▲      │      │  QdrantVectorStore          │
+│  Anthropic  OpenAI Gemini │      │  (only built-in impl)       │
+└───────────────────────────┘      └──────────────┬──────────────┘
+                                                  │
+┌─────────────────────────────────────────────────▼───────────────┐
+│                   Existing Services Layer                       │
+│  TextChunkerService         (uses ChatProvider)                 │
+│  EmbeddingProcessingService (uses EmbeddingProvider)            │
+│  EmbeddingManagementService (delegates to VectorStore)          │
+│  EmbeddingQueryService      (unchanged — no direct DB access)   │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ### Data Flow: ingest()
@@ -79,15 +86,15 @@ ingest(input: string | Buffer, metadata?)
   │
   ├─ Buffer? → pdf-parse → text string
   │
-  ├─ this.chunk(text) → Chunk[]          ← overridable hook
-  │     default: TextChunkerService(chatProvider) → JSON prompt → parse
+  ├─ this.chunk(text) → Chunk[]               ← overridable hook
+  │     default: TextChunkerService → ChatProvider.complete() → JSON parse
   │
   ├─ combine chunk.text + '.' + chunk.summary per chunk
   │
   ├─ EmbeddingProvider.embed() → EmbeddingVector[]
   │
   ├─ EmbeddingManagementService.insertEmbedding()
-  │     payload per point: { index, text, ...metadata }
+  │     → VectorStore.insert() with payload { index, text, ...metadata }
   │
   └─ store collectionId on this.embeddingId, return EmbeddingResult
 ```
@@ -97,37 +104,39 @@ ingest(input: string | Buffer, metadata?)
 ```
 query(question, history?)
   │
-  ├─ this.expandQuery(question) → string[]   ← hook (default: [question])
+  ├─ this.expandQuery(question) → string[]    ← hook (default: [question])
   │
   ├─ for each variant:
-  │     EmbeddingQueryService.query(variant, embeddingId, candidateLimit)
+  │     EmbeddingQueryService → EmbeddingManagementService
+  │     → VectorStore.search() → string[]
   │
-  ├─ flatten → deduplicateChunks() (exact text match) → take top `limit`
+  ├─ flatten → deduplicateChunks() → take top `limit`
   │
-  ├─ this.presentContext(chunks) → context  ← hook
-  ├─ this.buildSystemPrompt() → sysPrompt  ← hook
+  ├─ this.presentContext(chunks) → context    ← hook
+  ├─ this.buildSystemPrompt() → sysPrompt     ← hook
   │
-  ├─ countTokens(sysPrompt + context + history + question)
-  │     over tokenBudget? → compactHistory() via ChatProvider.complete()
+  ├─ countTokens() — over budget? → compactHistory() via ChatProvider
   │
   ├─ assemblePrompt → ChatProvider.complete() → answer
   │
-  └─ return RagResponse { answer, sources: chunks, history: [...history, user, assistant] }
+  └─ return RagResponse { answer, sources, history }
 ```
 
 ---
 
-## Provider Interfaces
+## New Types and Interfaces
 
-### `src/providers/ChatProvider.ts`
+### LLM Provider Interfaces
+
+#### `src/providers/ChatProvider.ts`
 
 ```typescript
 import type { Message } from '@@models/Message'
 
 export interface CompletionOptions {
   temperature?: number
-  topP?: number
-  jsonMode?: boolean   // hint provider to return valid JSON
+  topP?:        number
+  jsonMode?:    boolean  // hint provider to return valid JSON
 }
 
 export interface ChatProvider {
@@ -135,11 +144,11 @@ export interface ChatProvider {
 }
 ```
 
-### `src/providers/EmbeddingProvider.ts`
+#### `src/providers/EmbeddingProvider.ts`
 
 ```typescript
 export interface EmbeddingVector {
-  index: number
+  index:  number
   vector: number[]
 }
 
@@ -148,13 +157,124 @@ export interface EmbeddingProvider {
 }
 ```
 
+### Vector Store Interface
+
+#### `src/stores/VectorStore.ts`
+
+```typescript
+export interface VectorPoint {
+  id:      number | string
+  vector:  number[]
+  payload: Record<string, unknown>
+}
+
+export interface VectorSearchResult {
+  id:      number | string
+  score:   number
+  payload: Record<string, unknown>
+}
+
+export interface VectorStoreInsertResult {
+  collectionId: string
+  status:       string
+}
+
+export interface VectorStore {
+  exists(collectionId: string): Promise<boolean>
+  insert(collectionId: string, points: VectorPoint[]): Promise<VectorStoreInsertResult>
+  search(collectionId: string, queryVector: number[], limit: number): Promise<VectorSearchResult[]>
+}
+```
+
+The interface is intentionally minimal — `exists` + `insert` + `search` cover all operations the library needs. A custom implementation requires only these three methods.
+
+### New Model Types
+
+#### `src/models/Metadata.ts`
+```typescript
+export type Metadata = Record<string, string | number | boolean>
+```
+
+#### `src/models/Chunk.ts`
+```typescript
+export interface Chunk<TMetadata = Record<string, unknown>> {
+  text:      string
+  summary?:  string
+  metadata:  TMetadata
+}
+```
+`TextChunk` (`{ text, summary? }`) is **not deleted** — it remains the internal type used by `TextChunkerService`. The base class `chunk()` hook converts `TextChunk[]` to `Chunk[]` by adding `metadata: {}`.
+
+#### `src/models/Message.ts`
+```typescript
+export interface Message {
+  role:    'user' | 'assistant' | 'system'
+  content: string
+}
+```
+
+#### `src/models/RagConfig.ts`
+```typescript
+import type { ChatProvider }      from '@@providers/ChatProvider'
+import type { EmbeddingProvider } from '@@providers/EmbeddingProvider'
+import type { VectorStore }       from '@@stores/VectorStore'
+
+export interface RagConfig {
+  chatProvider:      ChatProvider
+  embeddingProvider: EmbeddingProvider
+  vectorStore?:      VectorStore  // default: QdrantVectorStore({ url: qdrant.url ?? env })
+  qdrant?: {
+    url?: string  // convenience shorthand when relying on the default QdrantVectorStore
+  }
+  retrieval?: {
+    limit?:          number  // top chunks returned to context, default: 5
+    candidateLimit?: number  // candidate pool before dedup, default: 20
+  }
+  tokenBudget?: number  // total token cap for assembled prompt, default: 8000
+}
+```
+
+Model selection is the provider's responsibility, not `RagConfig`. Pass the model when constructing: `new OpenAIProvider({ apiKey, chatModel: 'gpt-4o' })`.
+
+#### `src/models/RagResponse.ts`
+```typescript
+import type { Chunk }   from './Chunk'
+import type { Message } from './Message'
+
+export interface RagResponse {
+  answer:  string
+  sources: Chunk[]
+  history: Message[]
+}
+```
+
 ---
 
-## Provider Implementations
+## Files to Create or Modify
 
-### `src/providers/OpenAIProvider.ts`
+### Step 1 — New model files
 
-Implements both `ChatProvider` and `EmbeddingProvider`. Uses the existing `openai` npm package.
+Create in this order:
+
+1. `src/models/Metadata.ts`
+2. `src/models/Chunk.ts`
+3. `src/models/Message.ts`
+4. `src/models/RagResponse.ts`
+
+`src/models/RagConfig.ts` is created in Step 4 after provider and store interfaces exist.
+
+---
+
+### Step 2 — Create LLM provider interfaces and implementations
+
+Create `src/providers/` directory, then:
+
+#### `src/providers/ChatProvider.ts` and `src/providers/EmbeddingProvider.ts`
+Full content in **LLM Provider Interfaces** section above.
+
+#### `src/providers/OpenAIProvider.ts`
+
+Implements both `ChatProvider` and `EmbeddingProvider`. Uses the existing `openai` package (already in `dependencies`).
 
 ```typescript
 import OpenAI from 'openai'
@@ -163,26 +283,26 @@ import type { EmbeddingProvider, EmbeddingVector } from './EmbeddingProvider'
 import type { Message } from '@@models/Message'
 
 interface OpenAIProviderConfig {
-  apiKey: string
-  chatModel?: string       // default: 'gpt-4o'
-  embeddingModel?: string  // default: 'text-embedding-ada-002'
+  apiKey:           string
+  chatModel?:       string  // default: 'gpt-4o'
+  embeddingModel?:  string  // default: 'text-embedding-ada-002'
 }
 
 export class OpenAIProvider implements ChatProvider, EmbeddingProvider {
-  private client: OpenAI
-  private chatModel: string
+  private client:         OpenAI
+  private chatModel:      string
   private embeddingModel: string
 
   constructor(config: OpenAIProviderConfig) {
-    this.client = new OpenAI({ apiKey: config.apiKey })
+    this.client         = new OpenAI({ apiKey: config.apiKey })
     this.chatModel      = config.chatModel      ?? 'gpt-4o'
     this.embeddingModel = config.embeddingModel ?? 'text-embedding-ada-002'
   }
 
   async complete(messages: Message[], options?: CompletionOptions): Promise<string> {
     const response = await this.client.chat.completions.create({
-      model: this.chatModel,
-      messages: messages.map(m => ({ role: m.role, content: m.content })),
+      model:           this.chatModel,
+      messages:        messages.map(m => ({ role: m.role, content: m.content })),
       temperature:     options?.temperature,
       top_p:           options?.topP,
       response_format: options?.jsonMode ? { type: 'json_object' } : undefined,
@@ -196,18 +316,18 @@ export class OpenAIProvider implements ChatProvider, EmbeddingProvider {
       input: inputs,
     })
     return response.data.map(item => ({
-      index: item.index,
+      index:  item.index,
       vector: item.embedding,
     }))
   }
 }
 ```
 
-### `src/providers/AnthropicProvider.ts`
+#### `src/providers/AnthropicProvider.ts`
 
-Implements `ChatProvider` only. Anthropic does not provide an embeddings API.
+Implements `ChatProvider` only. Anthropic does not provide an embeddings API — callers must pair it with `OpenAIProvider` or `GeminiProvider` for embeddings.
 
-New dependency required: `@anthropic-ai/sdk` (add to `optionalDependencies` in `package.json`).
+New dependency: `@anthropic-ai/sdk` — add to `optionalDependencies` in `package.json`.
 
 ```typescript
 import Anthropic from '@anthropic-ai/sdk'
@@ -215,13 +335,13 @@ import type { ChatProvider, CompletionOptions } from './ChatProvider'
 import type { Message } from '@@models/Message'
 
 interface AnthropicProviderConfig {
-  apiKey: string
-  model?: string   // default: 'claude-opus-4-6'
+  apiKey:  string
+  model?:  string  // default: 'claude-opus-4-6'
 }
 
 export class AnthropicProvider implements ChatProvider {
   private client: Anthropic
-  private model: string
+  private model:  string
 
   constructor(config: AnthropicProviderConfig) {
     this.client = new Anthropic({ apiKey: config.apiKey })
@@ -229,18 +349,23 @@ export class AnthropicProvider implements ChatProvider {
   }
 
   async complete(messages: Message[], options?: CompletionOptions): Promise<string> {
-    // Anthropic separates system messages from the conversation array
     const systemContent = messages
       .filter(m => m.role === 'system')
       .map(m => m.content)
       .join('\n')
 
-    const conversationMessages = messages
+    let conversationMessages = messages
       .filter(m => m.role !== 'system')
-      .map(m => ({
-        role:    m.role as 'user' | 'assistant',
-        content: m.content,
-      }))
+      .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }))
+
+    // Anthropic has no native JSON mode — append instruction to last user message
+    if (options?.jsonMode && conversationMessages.length > 0) {
+      const last = conversationMessages[conversationMessages.length - 1]
+      conversationMessages = [
+        ...conversationMessages.slice(0, -1),
+        { ...last, content: last.content + ' Respond with valid JSON only.' },
+      ]
+    }
 
     const response = await this.client.messages.create({
       model:      this.model,
@@ -254,44 +379,11 @@ export class AnthropicProvider implements ChatProvider {
 }
 ```
 
-**Note on JSON mode:** Anthropic does not have a native JSON mode equivalent to OpenAI's `response_format: json_object`. When `jsonMode: true` is requested, the `AnthropicProvider` should append a brief instruction to the last user message: `" Respond with valid JSON only."`. This is handled inside `complete()` by checking `options?.jsonMode` and modifying the last message content before sending.
-
-Updated `complete()` with JSON mode handling:
-```typescript
-async complete(messages: Message[], options?: CompletionOptions): Promise<string> {
-  const systemContent = messages
-    .filter(m => m.role === 'system')
-    .map(m => m.content)
-    .join('\n')
-
-  let conversationMessages = messages
-    .filter(m => m.role !== 'system')
-    .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }))
-
-  if (options?.jsonMode && conversationMessages.length > 0) {
-    const last = conversationMessages[conversationMessages.length - 1]
-    conversationMessages = [
-      ...conversationMessages.slice(0, -1),
-      { ...last, content: last.content + ' Respond with valid JSON only.' },
-    ]
-  }
-
-  const response = await this.client.messages.create({
-    model:      this.model,
-    max_tokens: 4096,
-    system:     systemContent || undefined,
-    messages:   conversationMessages,
-  })
-
-  return response.content[0].type === 'text' ? response.content[0].text : ''
-}
-```
-
-### `src/providers/GeminiProvider.ts`
+#### `src/providers/GeminiProvider.ts`
 
 Implements both `ChatProvider` and `EmbeddingProvider`.
 
-New dependency required: `@google/generative-ai` (add to `optionalDependencies` in `package.json`).
+New dependency: `@google/generative-ai` — add to `optionalDependencies` in `package.json`.
 
 ```typescript
 import { GoogleGenerativeAI } from '@google/generative-ai'
@@ -300,14 +392,14 @@ import type { EmbeddingProvider, EmbeddingVector } from './EmbeddingProvider'
 import type { Message } from '@@models/Message'
 
 interface GeminiProviderConfig {
-  apiKey: string
-  chatModel?:      string  // default: 'gemini-1.5-pro'
-  embeddingModel?: string  // default: 'text-embedding-004'
+  apiKey:           string
+  chatModel?:       string  // default: 'gemini-1.5-pro'
+  embeddingModel?:  string  // default: 'text-embedding-004'
 }
 
 export class GeminiProvider implements ChatProvider, EmbeddingProvider {
-  private client: GoogleGenerativeAI
-  private chatModel: string
+  private client:         GoogleGenerativeAI
+  private chatModel:      string
   private embeddingModel: string
 
   constructor(config: GeminiProviderConfig) {
@@ -318,13 +410,12 @@ export class GeminiProvider implements ChatProvider, EmbeddingProvider {
 
   async complete(messages: Message[], options?: CompletionOptions): Promise<string> {
     const model = this.client.getGenerativeModel({
-      model: this.chatModel,
+      model:            this.chatModel,
       generationConfig: options?.jsonMode
         ? { responseMimeType: 'application/json' }
         : undefined,
     })
 
-    // Gemini separates system instructions and requires alternating user/model turns
     const systemContent = messages
       .filter(m => m.role === 'system')
       .map(m => m.content)
@@ -332,7 +423,7 @@ export class GeminiProvider implements ChatProvider, EmbeddingProvider {
 
     const turns = messages.filter(m => m.role !== 'system')
 
-    // History = all turns except the last (which is sent as the new message)
+    // Gemini requires alternating user/model turns
     const history = turns.slice(0, -1).map(m => ({
       role:  m.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: m.content }],
@@ -362,122 +453,233 @@ export class GeminiProvider implements ChatProvider, EmbeddingProvider {
 
 ---
 
-## New Types and Interfaces
+### Step 3 — Create vector store interface and Qdrant implementation
 
-All new model files live in `src/models/`.
+Create `src/stores/` directory, then:
 
-### `src/models/Metadata.ts`
+#### `src/stores/VectorStore.ts`
+Full content in **Vector Store Interface** section above.
+
+#### `src/stores/QdrantVectorStore.ts`
+
+Absorbs all logic from `src/utils/connectionManager.util.ts` and the Qdrant-specific parts of `src/services/EmbeddingManagement.service.ts`. `connectionManager.util.ts` is **deleted** after this step.
+
 ```typescript
-export type Metadata = Record<string, string | number | boolean>
-```
+import { QdrantClient } from '@qdrant/qdrant-js'
+import type {
+  VectorStore,
+  VectorPoint,
+  VectorSearchResult,
+  VectorStoreInsertResult,
+} from './VectorStore'
 
-### `src/models/Chunk.ts`
-```typescript
-export interface Chunk<TMetadata = Record<string, unknown>> {
-  text: string
-  summary?: string
-  metadata: TMetadata
+interface QdrantVectorStoreConfig {
+  url?: string  // default: process.env.QDRANT_URL ?? 'http://localhost:6333'
+}
+
+export class QdrantVectorStore implements VectorStore {
+  private client: QdrantClient
+
+  constructor(config: QdrantVectorStoreConfig = {}) {
+    const url = config.url ?? process.env.QDRANT_URL ?? 'http://localhost:6333'
+    this.client = new QdrantClient({ url })
+  }
+
+  async exists(collectionId: string): Promise<boolean> {
+    const { exists } = await this.client.collectionExists(collectionId)
+    return exists
+  }
+
+  async insert(collectionId: string, points: VectorPoint[]): Promise<VectorStoreInsertResult> {
+    await this.client.createCollection(collectionId, {
+      vectors: {
+        size:     points[0].vector.length,
+        distance: 'Cosine',
+      },
+      optimizers_config: {
+        default_segment_number: 2,
+      },
+      replication_factor: 2,
+    })
+
+    const { status } = await this.client.upsert(collectionId, {
+      points: points.map(p => ({
+        id:      p.id,
+        vector:  p.vector,
+        payload: p.payload,
+      })),
+    })
+
+    return { collectionId, status }
+  }
+
+  async search(
+    collectionId: string,
+    queryVector:  number[],
+    limit:        number,
+  ): Promise<VectorSearchResult[]> {
+    const results = await this.client.search(collectionId, {
+      vector: queryVector,
+      limit,
+    })
+    return results.map(r => ({
+      id:      r.id as number,
+      score:   r.score,
+      payload: (r.payload ?? {}) as Record<string, unknown>,
+    }))
+  }
 }
 ```
-Note: `Chunk` is additive. The existing `TextChunk` (`{ text, summary? }`) is **not deleted** — it remains the internal type used by `TextChunkerService`. The base class `chunk()` hook converts `TextChunk[]` to `Chunk[]` by adding `metadata: {}`.
 
-### `src/models/Message.ts`
+---
+
+### Step 4 — Create `src/models/RagConfig.ts`
+
+Full content in **New Model Types** section above. Created after provider and store interfaces exist.
+
+---
+
+### Step 5 — Modify `src/services/EmbeddingManagement.service.ts`
+
+**What changes:** Accepts a `VectorStore` and delegates all operations to it. Becomes a pure adapter between domain types (`TextEmbedding`, `EmbeddingInsertResult`) and the abstract store interface. All Qdrant-specific code is removed — no `QdrantDbConnection` import.
+
 ```typescript
-export interface Message {
-  role: 'user' | 'assistant' | 'system'
-  content: string
+import type { VectorStore }           from '@@stores/VectorStore'
+import type { TextEmbedding }         from '@@models/TextEmbedding'
+import type { Metadata }              from '@@models/Metadata'
+import type { EmbeddingInsertResult } from '@@models/EmbeddingInsertResult'
+
+export class EmbeddingManagementService {
+  private vectorStore: VectorStore
+
+  constructor(vectorStore: VectorStore) {
+    this.vectorStore = vectorStore
+  }
+
+  async embeddingExists(embeddingId: string): Promise<boolean> {
+    return this.vectorStore.exists(embeddingId)
+  }
+
+  async insertEmbedding(
+    embeddingId:      string,
+    textEmbeddingArr: TextEmbedding[],
+    metadata?:        Metadata,
+  ): Promise<EmbeddingInsertResult> {
+    const points = textEmbeddingArr.map(e => ({
+      id:      e.index,
+      vector:  e.vector,
+      payload: { index: e.index, text: e.text, ...(metadata ?? {}) },
+    }))
+    const result = await this.vectorStore.insert(embeddingId, points)
+    return {
+      embeddingId: result.collectionId,
+      status:      result.status as 'acknowledged' | 'completed',
+    }
+  }
+
+  async searchByEmbedding(
+    collectionId: string,
+    opts: { embedding: TextEmbedding; limit: number },
+  ): Promise<string[]> {
+    const results = await this.vectorStore.search(
+      collectionId,
+      opts.embedding.vector,
+      opts.limit,
+    )
+    return results.map(r => (r.payload.text as string) ?? '')
+  }
 }
 ```
 
-### `src/models/RagConfig.ts`
+---
+
+### Step 6 — Modify `src/services/EmbeddingProcessing.service.ts`
+
+**What changes:**
+- Constructor accepts `EmbeddingProvider` and `EmbeddingManagementService` as injected parameters (no longer self-constructs `EmbeddingManagementService` — it cannot, since that now requires a `VectorStore`)
+- `createTextEmbedding` delegates to `EmbeddingProvider.embed()`
+- `embedText` gains optional `opts` for `chunkFn` injection and metadata pass-through
+- `CreateEmbeddingValidator` usage removed — the provider returns typed data directly
+
+Remove imports: `import type OpenAI from 'openai'`, `import { CreateEmbeddingValidator }...`
+
+Add imports:
 ```typescript
-import type { ChatProvider }      from '@@providers/ChatProvider'
 import type { EmbeddingProvider } from '@@providers/EmbeddingProvider'
+import type { Metadata }          from '@@models/Metadata'
+```
 
-export interface RagConfig {
-  chatProvider:      ChatProvider
-  embeddingProvider: EmbeddingProvider
-  qdrant?: {
-    url?: string   // default: 'http://localhost:6333'
-  }
-  retrieval?: {
-    limit?:          number  // top chunks returned to context, default: 5
-    candidateLimit?: number  // candidate pool before dedup, default: 20
-  }
-  tokenBudget?: number       // total token cap for assembled prompt, default: 8000
+New constructor:
+```typescript
+constructor(
+  embeddingProvider:          EmbeddingProvider,
+  embeddingManagementService: EmbeddingManagementService,
+) {
+  this.embeddingProvider          = embeddingProvider
+  this.embeddingManagementService = embeddingManagementService
 }
 ```
 
-Note: Model selection is now the responsibility of the provider, not `RagConfig`. Pass the model when constructing the provider: `new OpenAIProvider({ apiKey, chatModel: 'gpt-4o' })`.
-
-### `src/models/RagResponse.ts`
+New `createTextEmbedding`:
 ```typescript
-import type { Chunk }   from './Chunk'
-import type { Message } from './Message'
-
-export interface RagResponse {
-  answer:  string
-  sources: Chunk[]
-  history: Message[]   // updated history including this exchange
+async createTextEmbedding(input: string | string[]): Promise<TextEmbedding[]> {
+  const inputs  = Array.isArray(input) ? input : [input]
+  const vectors = await this.embeddingProvider.embed(inputs)
+  return vectors.map(v => ({
+    index:  v.index,
+    text:   inputs[v.index],
+    vector: v.vector,
+  }))
 }
+```
+
+New `embedText` signature:
+```typescript
+async embedText(
+  text: string | string[],
+  opts?: {
+    metadata?: Metadata
+    chunkFn?:  (text: string) => Promise<TextChunk[]>
+  }
+): Promise<EmbeddingResult>
+```
+
+Inside the `if (!embeddingExists)` block, replace the hardcoded `TextChunkerService` instantiation:
+```typescript
+// EmbeddingProcessingService holds no ChatProvider, so it cannot construct
+// a TextChunkerService itself. The caller (RagPlugin) must always provide chunkFn.
+if (!opts?.chunkFn) {
+  throw new Error(
+    'chunkFn is required. Pass a TextChunkerService.chunk bound method via opts.chunkFn.'
+  )
+}
+const chunkedTexts = await opts.chunkFn(textAsString)
+```
+
+Pass metadata to `insertEmbedding`:
+```typescript
+await this.embeddingManagementService.insertEmbedding(
+  hashAsCollectionId,
+  textEmbedding,
+  opts?.metadata,
+)
+```
+
+`embedPDF` must also accept and forward `opts` (same signature change as `embedText`):
+```typescript
+async embedPDF(filePath: string, opts?: { metadata?: Metadata; chunkFn?: ... }): Promise<EmbeddingResult>
 ```
 
 ---
 
-## Files to Create or Modify
+### Step 7 — Modify `src/services/TextChunker.service.ts`
 
-### Step 1 — New model files
-
-Create in this order (RagConfig imports from providers, so create providers first):
-
-1. `src/models/Metadata.ts`
-2. `src/models/Chunk.ts`
-3. `src/models/Message.ts`
-4. `src/models/RagResponse.ts`
-
-`src/models/RagConfig.ts` is created in Step 3 after the provider interfaces exist.
-
----
-
-### Step 2 — Create provider interfaces and implementations
-
-Create `src/providers/` directory, then:
-
-#### `src/providers/ChatProvider.ts`
-Full content in **Provider Interfaces** section above.
-
-#### `src/providers/EmbeddingProvider.ts`
-Full content in **Provider Interfaces** section above.
-
-#### `src/providers/OpenAIProvider.ts`
-Full content in **Provider Implementations** section above.
-
-#### `src/providers/AnthropicProvider.ts`
-Full content in **Provider Implementations** section above.
-
-#### `src/providers/GeminiProvider.ts`
-Full content in **Provider Implementations** section above.
-
----
-
-### Step 3 — Create `src/models/RagConfig.ts`
-
-Full content in **New Types and Interfaces** section above. Created after provider interfaces exist.
-
----
-
-### Step 4 — Modify `src/services/TextChunker.service.ts`
-
-**What changes:** Accept `ChatProvider` instead of `OpenAI`. Replace OpenAI function calling with a JSON prompt approach that works across all providers.
-
-The `textChunker.function.ts` file (which defined the OpenAI function calling schema) is **deleted** in this step — it becomes dead code and is no longer referenced.
-
-New full implementation:
+**What changes:** Accept `ChatProvider` instead of `OpenAI`. Replace OpenAI function calling with a JSON prompt that works across all providers. `textChunker.function.ts` is **deleted** — no longer referenced.
 
 ```typescript
-import type { ChatProvider }         from '@@providers/ChatProvider'
-import { TextChunkerValidator }      from '@@validators/TextChunker.validator'
-import type { TextChunk }            from '@@models/TextChunk'
+import type { ChatProvider }    from '@@providers/ChatProvider'
+import { TextChunkerValidator } from '@@validators/TextChunker.validator'
+import type { TextChunk }       from '@@models/TextChunk'
 
 export class TextChunkerService {
   private chatProvider: ChatProvider
@@ -496,11 +698,11 @@ export class TextChunkerService {
     const response = await this.chatProvider.complete(
       [
         {
-          role: 'system',
+          role:    'system',
           content: 'You are a text chunking assistant. Always respond with valid JSON only.',
         },
         {
-          role: 'user',
+          role:    'user',
           content:
             'Split the following text into meaningful chunks for a RAG system. '
             + 'Return a JSON object with this exact structure: '
@@ -511,7 +713,7 @@ export class TextChunkerService {
       { jsonMode: true, temperature: 0.3 },
     )
 
-    const parsed   = JSON.parse(response)
+    const parsed    = JSON.parse(response)
     const validated = TextChunkerValidator.parse(parsed)
 
     return validated.chunks.map(chunk => ({
@@ -524,101 +726,9 @@ export class TextChunkerService {
 
 ---
 
-### Step 5 — Modify `src/services/EmbeddingProcessing.service.ts`
+### Step 8 — Create `src/RagPlugin.ts` and `src/plugins/` directory
 
-**What changes:** Accept `EmbeddingProvider` instead of `OpenAI`. Remove the raw OpenAI embeddings call from `createTextEmbedding` — delegate to the provider. Accept optional `chunkFn` and `metadata` in `embedText` (same as before but now with provider-based signature).
-
-New imports to replace `import type OpenAI from 'openai'`:
-```typescript
-import type { EmbeddingProvider } from '@@providers/EmbeddingProvider'
-import type { Metadata }          from '@@models/Metadata'
-```
-
-New constructor signature:
-```typescript
-constructor(embeddingProvider: EmbeddingProvider) {
-  this.embeddingManagementService = new EmbeddingManagementService()
-  this.embeddingProvider = embeddingProvider
-}
-```
-
-New `createTextEmbedding` — delegates entirely to the provider:
-```typescript
-async createTextEmbedding(input: string | string[]): Promise<TextEmbedding[]> {
-  const inputs = Array.isArray(input) ? input : [input]
-  const vectors = await this.embeddingProvider.embed(inputs)
-  return vectors.map(v => ({
-    index:  v.index,
-    text:   inputs[v.index],
-    vector: v.vector,
-  }))
-}
-```
-
-The `CreateEmbeddingValidator` import and usage in the current `createTextEmbedding` is removed — the provider is trusted to return the correct shape. The validator was guarding against raw OpenAI API response variance; it is no longer needed here.
-
-New `embedText` signature (adds opts for `chunkFn` injection and metadata):
-```typescript
-async embedText(
-  text: string | string[],
-  opts?: {
-    metadata?: Metadata
-    chunkFn?: (text: string) => Promise<TextChunk[]>
-  }
-): Promise<EmbeddingResult>
-```
-
-Inside the `if (!embeddingExists)` block, replace the hardcoded `TextChunkerService` instantiation:
-```typescript
-// The chunkFn in opts is injected by RagPlugin so it can use its own chunk() hook.
-// If not provided, fall back to constructing TextChunkerService — but note:
-// TextChunkerService now requires a ChatProvider, so it cannot be constructed here
-// without one. EmbeddingProcessingService does not hold a ChatProvider.
-// Therefore: when no chunkFn is provided, throw a descriptive error.
-const chunkedTexts = opts?.chunkFn
-  ? await opts.chunkFn(textAsString)
-  : (() => { throw new Error('chunkFn is required — pass a ChatProvider-backed chunker via opts.chunkFn') })()
-```
-
-**Important:** The old `EmbeddingProcessingService` could self-contain chunking because it accepted the same `OpenAI` client for both embedding and chunking. With provider separation, embedding and chat are distinct interfaces. `EmbeddingProcessingService` only holds an `EmbeddingProvider` and cannot construct a `TextChunkerService` internally. The caller (i.e., `RagPlugin`) is responsible for wiring chunking, which it does by passing `chunkFn`. The existing integration tests that call `embedText` directly **do not pass a chunkFn** and will fail — see Step 10 for how to update those tests.
-
-Pass metadata to `insertEmbedding` (same as before):
-```typescript
-await this.embeddingManagementService.insertEmbedding(hashAsCollectionId, textEmbedding, opts?.metadata)
-```
-
----
-
-### Step 6 — Modify `src/services/EmbeddingManagement.service.ts`
-
-**What changes:** `insertEmbedding` must spread arbitrary metadata into each Qdrant point payload. No provider changes — this service is Qdrant-only.
-
-Add import at top:
-```typescript
-import type { Metadata } from '@@models/Metadata'
-```
-
-Change signature:
-```typescript
-async insertEmbedding(
-  embeddingId: string,
-  textEmbeddingArr: TextEmbedding[],
-  metadata?: Metadata
-): Promise<EmbeddingInsertResult>
-```
-
-Change the `qdrantPoints` map payload:
-```typescript
-payload: {
-  index: textEmbedding.index,
-  text:  textEmbedding.text,
-  ...(metadata ?? {}),
-},
-```
-
----
-
-### Step 7 — Create `src/plugins/` directory and `src/RagPlugin.ts`
+`RagPlugin` is the composition root. It constructs and wires all services, manages the full pipeline, and exposes public API + protected hooks.
 
 ```typescript
 import pdfparse from 'pdf-parse-debugging-disabled'
@@ -626,6 +736,7 @@ import { EmbeddingProcessingService } from '@@services/EmbeddingProcessing.servi
 import { EmbeddingManagementService } from '@@services/EmbeddingManagement.service'
 import { EmbeddingQueryService }      from '@@services/EmbeddingQuery.service'
 import { TextChunkerService }         from '@@services/TextChunker.service'
+import { QdrantVectorStore }          from '@@stores/QdrantVectorStore'
 import type { RagConfig }             from '@@models/RagConfig'
 import type { RagResponse }           from '@@models/RagResponse'
 import type { Chunk }                 from '@@models/Chunk'
@@ -634,40 +745,36 @@ import type { Metadata }              from '@@models/Metadata'
 import type { EmbeddingResult }       from '@@models/EmbeddingResult'
 import type { TextChunk }             from '@@models/TextChunk'
 import type { ChatProvider }          from '@@providers/ChatProvider'
-import type { EmbeddingProvider }     from '@@providers/EmbeddingProvider'
 
 export abstract class RagPlugin {
-  private chatProvider:              ChatProvider
-  private embeddingProvider:         EmbeddingProvider
+  private chatProvider:               ChatProvider
   private embeddingProcessingService: EmbeddingProcessingService
-  private embeddingManagementService: EmbeddingManagementService
   private embeddingQueryService:      EmbeddingQueryService
   private textChunkerService:         TextChunkerService
 
-  private readonly retrievalLimit:  number
-  private readonly candidateLimit:  number
-  private readonly tokenBudget:     number
+  private readonly retrievalLimit: number
+  private readonly candidateLimit: number
+  private readonly tokenBudget:    number
 
   // Set by ingest(); used by query(). One instance = one corpus.
   protected embeddingId: string | null = null
 
   constructor(config: RagConfig) {
-    this.chatProvider      = config.chatProvider
-    this.embeddingProvider = config.embeddingProvider
-
+    this.chatProvider   = config.chatProvider
     this.retrievalLimit = config.retrieval?.limit          ?? 5
     this.candidateLimit = config.retrieval?.candidateLimit ?? 20
     this.tokenBudget    = config.tokenBudget               ?? 8000
 
-    if (config.qdrant?.url) {
-      process.env.QDRANT_URL = config.qdrant.url
-    }
+    const vectorStore            = config.vectorStore ?? new QdrantVectorStore({ url: config.qdrant?.url })
+    const embeddingMgmtService   = new EmbeddingManagementService(vectorStore)
 
-    this.textChunkerService         = new TextChunkerService(this.chatProvider)
-    this.embeddingManagementService = new EmbeddingManagementService()
-    this.embeddingProcessingService = new EmbeddingProcessingService(this.embeddingProvider)
-    this.embeddingQueryService      = new EmbeddingQueryService(
-      this.embeddingManagementService,
+    this.textChunkerService         = new TextChunkerService(config.chatProvider)
+    this.embeddingProcessingService = new EmbeddingProcessingService(
+      config.embeddingProvider,
+      embeddingMgmtService,
+    )
+    this.embeddingQueryService = new EmbeddingQueryService(
+      embeddingMgmtService,
       this.embeddingProcessingService,
     )
   }
@@ -684,7 +791,6 @@ export abstract class RagPlugin {
       text = input
     }
 
-    // Bridge: chunk() returns Chunk[], but embedText expects TextChunk[]
     const chunkFn = async (t: string): Promise<TextChunk[]> => {
       const chunks = await this.chunk(t)
       return chunks.map(c => ({ text: c.text, summary: c.summary }))
@@ -700,49 +806,36 @@ export abstract class RagPlugin {
       throw new Error('No content has been ingested. Call ingest() before query().')
     }
 
-    // 1. Expand query (default: [question])
-    const variants = await this.expandQuery(question)
-
-    // 2. Retrieve candidateLimit chunks per variant
+    const variants   = await this.expandQuery(question)
     const rawResults = await Promise.all(
       variants.map(v => this.embeddingQueryService.query(v, this.embeddingId!, this.candidateLimit))
     )
 
-    // 3. Deduplicate and take top `limit`
     const allChunks: Chunk[] = rawResults.flat().map(text => ({ text, metadata: {} }))
     const topChunks = this.deduplicateChunks(allChunks).slice(0, this.retrievalLimit)
 
-    // 4. Format context and system prompt via overridable hooks
     const context      = this.presentContext(topChunks)
     const systemPrompt = this.buildSystemPrompt()
 
-    // 5. Token budget: compact history if needed
     const baseTokens    = this.countTokens(systemPrompt + context + question)
     const historyBudget = this.tokenBudget - baseTokens
     const compacted     = await this.compactHistory(history, historyBudget)
 
-    // 6. Call LLM for answer
     const messages = this.assemblePrompt(systemPrompt, context, compacted, question)
     const answer   = await this.chatProvider.complete(messages)
 
-    const updatedHistory: Message[] = [
-      ...compacted,
-      { role: 'user',      content: question },
-      { role: 'assistant', content: answer   },
-    ]
-
-    return { answer, sources: topChunks, history: updatedHistory }
+    return {
+      answer,
+      sources: topChunks,
+      history: [...compacted, { role: 'user', content: question }, { role: 'assistant', content: answer }],
+    }
   }
 
   // ── Protected hooks (all have working defaults) ───────────────────────
 
   protected async chunk(text: string): Promise<Chunk[]> {
     const textChunks = await this.textChunkerService.chunk(text)
-    return textChunks.map(tc => ({
-      text:     tc.text,
-      summary:  tc.summary,
-      metadata: {},
-    }))
+    return textChunks.map(tc => ({ text: tc.text, summary: tc.summary, metadata: {} }))
   }
 
   protected presentContext(chunks: Chunk[]): string {
@@ -761,24 +854,20 @@ export abstract class RagPlugin {
 
   private async compactHistory(history: Message[], tokenBudget: number): Promise<Message[]> {
     const historyText = history.map(m => `${m.role}: ${m.content}`).join('\n')
-    if (this.countTokens(historyText) <= tokenBudget || history.length <= 2) {
-      return history
-    }
+    if (this.countTokens(historyText) <= tokenBudget || history.length <= 2) return history
 
     const midpoint    = Math.floor(history.length / 2)
     const toSummarise = history.slice(0, midpoint)
     const toKeep      = history.slice(midpoint)
 
-    const summaryText = toSummarise.map(m => `${m.role}: ${m.content}`).join('\n')
-    const summary     = await this.chatProvider.complete([{
+    const summary = await this.chatProvider.complete([{
       role:    'user',
-      content: `Summarise the following conversation concisely:\n\n${summaryText}`,
+      content: `Summarise the following conversation concisely:\n\n${
+        toSummarise.map(m => `${m.role}: ${m.content}`).join('\n')
+      }`,
     }])
 
-    return [
-      { role: 'assistant', content: `[Summary]: ${summary}` },
-      ...toKeep,
-    ]
+    return [{ role: 'assistant', content: `[Summary]: ${summary}` }, ...toKeep]
   }
 
   private deduplicateChunks(chunks: Chunk[]): Chunk[] {
@@ -790,16 +879,16 @@ export abstract class RagPlugin {
     })
   }
 
-  // Approximation: 1 token ≈ 4 characters. No additional dependency needed.
+  // Approximation: 1 token ≈ 4 characters. No additional dependency required.
   private countTokens(text: string): number {
     return Math.ceil(text.length / 4)
   }
 
   private assemblePrompt(
     systemPrompt: string,
-    context: string,
-    history: Message[],
-    question: string,
+    context:      string,
+    history:      Message[],
+    question:     string,
   ): Message[] {
     return [
       { role: 'system', content: `${systemPrompt}\n\nContext:\n${context}` },
@@ -810,27 +899,25 @@ export abstract class RagPlugin {
 }
 ```
 
-**Known limitation:** `RagPlugin` stores `embeddingId` from the most recent `ingest()` call. A single instance is scoped to one corpus. For multi-corpus queries use the lower-level `EmbeddingQueryService.queryCollections()` directly.
-
-**Known limitation:** Setting `process.env.QDRANT_URL` in the constructor is a side effect. Since `QdrantDbConnection` is a singleton, the first `RagPlugin` constructed in a process wins for the Qdrant URL. This is an existing architectural constraint of the connection manager and is out of scope for this refactoring.
+**Known limitation:** `embeddingId` is set by the most recent `ingest()` call — one instance = one corpus. For multi-corpus queries use `EmbeddingQueryService.queryCollections()` directly.
 
 ---
 
-### Step 8 — Create `src/plugins/ConversationalRag.ts`
+### Step 9 — Create `src/plugins/ConversationalRag.ts`
 
 ```typescript
 import { RagPlugin } from '../RagPlugin'
 
 /**
  * ConversationalRag uses all default RagPlugin behaviours.
- * It is the recommended starting point for general-purpose conversational RAG.
+ * The recommended starting point for general-purpose conversational RAG.
  */
 export class ConversationalRag extends RagPlugin {}
 ```
 
 ---
 
-### Step 9 — Create `src/plugins/DocumentRag.ts`
+### Step 10 — Create `src/plugins/DocumentRag.ts`
 
 ```typescript
 import { RagPlugin } from '../RagPlugin'
@@ -856,9 +943,9 @@ export class DocumentRag extends RagPlugin {
 
 ---
 
-### Step 10 — Update `tsconfig.json`
+### Step 11 — Update `tsconfig.json`
 
-Add `"@@plugins/*"` and `"@@providers/*"` path aliases. Remove trailing comma from last entry (JSON does not allow trailing commas). Full updated `paths` block:
+Add `@@plugins/*`, `@@providers/*`, and `@@stores/*` aliases. Remove the trailing comma after the last existing entry (JSON does not allow trailing commas). Full updated `paths` block:
 
 ```json
 "paths": {
@@ -868,6 +955,7 @@ Add `"@@plugins/*"` and `"@@providers/*"` path aliases. Remove trailing comma fr
   "@@providers/*":  ["providers/*"],
   "@@schemas/*":    ["schemas/*"],
   "@@services/*":   ["services/*"],
+  "@@stores/*":     ["stores/*"],
   "@@utils/*":      ["utils/*"],
   "@@validators/*": ["validators/*"]
 }
@@ -875,7 +963,7 @@ Add `"@@plugins/*"` and `"@@providers/*"` path aliases. Remove trailing comma fr
 
 ---
 
-### Step 11 — Create `src/index.ts`
+### Step 12 — Create `src/index.ts`
 
 ```typescript
 // High-level plugin API
@@ -883,14 +971,25 @@ export { RagPlugin }         from './RagPlugin'
 export { ConversationalRag } from './plugins/ConversationalRag'
 export { DocumentRag }       from './plugins/DocumentRag'
 
-// Provider interfaces
-export type { ChatProvider, CompletionOptions } from './providers/ChatProvider'
+// LLM provider interfaces
+export type { ChatProvider, CompletionOptions }    from './providers/ChatProvider'
 export type { EmbeddingProvider, EmbeddingVector } from './providers/EmbeddingProvider'
 
-// Provider implementations
+// LLM provider implementations
 export { OpenAIProvider }    from './providers/OpenAIProvider'
 export { AnthropicProvider } from './providers/AnthropicProvider'
 export { GeminiProvider }    from './providers/GeminiProvider'
+
+// Vector store interface
+export type {
+  VectorStore,
+  VectorPoint,
+  VectorSearchResult,
+  VectorStoreInsertResult,
+} from './stores/VectorStore'
+
+// Vector store implementation
+export { QdrantVectorStore } from './stores/QdrantVectorStore'
 
 // Existing low-level services (preserved for direct access)
 export { EmbeddingProcessingService } from './services/EmbeddingProcessing.service'
@@ -914,67 +1013,74 @@ export type { TextEmbedding }         from './models/TextEmbedding'
 
 ---
 
-### Step 12 — Update `package.json`
+### Step 13 — Update `package.json`
 
-Add optional dependencies for Anthropic and Gemini SDKs. Callers who only use OpenAI do not need these installed.
+Add optional dependencies. Callers using only OpenAI + Qdrant do not need these installed.
 
 ```json
 "optionalDependencies": {
-  "@anthropic-ai/sdk": "^0.54.0",
+  "@anthropic-ai/sdk":     "^0.54.0",
   "@google/generative-ai": "^0.24.0"
 }
 ```
 
-Verify the latest versions of both packages at install time.
+Verify latest versions at install time.
 
 ---
 
-### Step 13 — Delete `src/functions/textChunker.function.ts`
+### Step 14 — Delete obsolete files
 
-This file defined the OpenAI function calling schema for `TextChunkerService`. It is no longer used — `TextChunkerService` now uses a JSON prompt approach compatible with all providers. Delete it.
+- `src/functions/textChunker.function.ts` — OpenAI function calling schema; replaced by JSON prompt
+- `src/utils/connectionManager.util.ts` — Qdrant singleton logic absorbed into `QdrantVectorStore`
 
 ---
 
-### Step 14 — Update existing integration tests
+### Step 15 — Update existing integration tests
 
-The existing tests (`textEmbeddingAndQuery.spec.ts`, `pdfEmbeddingAndQuery.spec.ts`) directly instantiate `OpenAI` and pass it to `EmbeddingProcessingService`. Both must be updated to use `OpenAIProvider` instead.
+The existing tests (`textEmbeddingAndQuery.spec.ts`, `pdfEmbeddingAndQuery.spec.ts`) directly instantiate `OpenAI` and `EmbeddingManagementService()` with no args. Both must be updated.
 
-**In both test files**, replace:
+Replace the `beforeAll` setup in both files:
 
 ```typescript
 // Before:
 import OpenAI from 'openai'
-// ...
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 const embeddingProcessingService = new EmbeddingProcessingService(openai)
+embeddingQueryService = new EmbeddingQueryService(
+  new EmbeddingManagementService(),
+  embeddingProcessingService,
+)
+;({ embeddingId } = await embeddingProcessingService.embedText(texts))
 ```
 
 ```typescript
 // After:
-import { OpenAIProvider } from '@@providers/OpenAIProvider'
-// ...
-const provider = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY! })
-const embeddingProcessingService = new EmbeddingProcessingService(provider)
+import { OpenAIProvider }    from '@@providers/OpenAIProvider'
+import { QdrantVectorStore } from '@@stores/QdrantVectorStore'
+
+const provider       = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY! })
+const vectorStore    = new QdrantVectorStore()
+const mgmtService    = new EmbeddingManagementService(vectorStore)
+const chunkerService = new TextChunkerService(provider)
+
+embeddingProcessingService = new EmbeddingProcessingService(provider, mgmtService)
+embeddingQueryService      = new EmbeddingQueryService(mgmtService, embeddingProcessingService)
+
+;({ embeddingId } = await embeddingProcessingService.embedText(texts, {
+  chunkFn: (t) => chunkerService.chunk(t),
+}))
 ```
 
-**Important:** These tests also call `embeddingProcessingService.embedText(texts)` without a `chunkFn`. Since `EmbeddingProcessingService` can no longer self-construct a `TextChunkerService` (it no longer holds a `ChatProvider`), these calls will now throw unless a `chunkFn` is passed. Update the test `beforeAll` blocks to also pass a chunker:
-
+For `embedPDF` calls in `pdfEmbeddingAndQuery.spec.ts`:
 ```typescript
-const chatProvider = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY! })
-const provider     = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY! })
-const chunkerService = new TextChunkerService(chatProvider)
-
-const embeddingProcessingService = new EmbeddingProcessingService(provider)
-
-// When calling embedText directly, pass the chunkFn:
-const { embeddingId } = await embeddingProcessingService.embedText(texts, {
+;({ embeddingId } = await embeddingProcessingService.embedPDF(pdfPath, {
   chunkFn: (t) => chunkerService.chunk(t),
-})
+}))
 ```
 
 ---
 
-### Step 15 — Create new integration tests
+### Step 16 — Create new integration tests
 
 #### `test/integration/conversationalRag.spec.ts`
 
@@ -983,6 +1089,7 @@ import dotenv from 'dotenv'
 import { beforeAll, describe, expect, it, setDefaultTimeout } from 'bun:test'
 import { ConversationalRag } from '@@plugins/ConversationalRag'
 import { OpenAIProvider }    from '@@providers/OpenAIProvider'
+import { QdrantVectorStore } from '@@stores/QdrantVectorStore'
 import type { RagResponse }  from '@@models/RagResponse'
 
 describe('ConversationalRag — end-to-end ingest and query', async function () {
@@ -1003,6 +1110,7 @@ describe('ConversationalRag — end-to-end ingest and query', async function () 
     rag = new ConversationalRag({
       chatProvider:      provider,
       embeddingProvider: provider,
+      vectorStore:       new QdrantVectorStore(),
     })
     const result = await rag.ingest(text)
     if (!result.embeddingId) throw new Error('Ingest failed')
@@ -1018,7 +1126,7 @@ describe('ConversationalRag — end-to-end ingest and query', async function () 
     expect(response.sources.length).toBeGreaterThan(0)
   })
 
-  it('should return history containing user and assistant turns', () => {
+  it('should return history with user and assistant turns', () => {
     expect(response.history.some(m => m.role === 'user')).toBeTrue()
     expect(response.history.some(m => m.role === 'assistant')).toBeTrue()
   })
@@ -1038,6 +1146,7 @@ import { readFileSync }      from 'fs'
 import { beforeAll, describe, expect, it, setDefaultTimeout } from 'bun:test'
 import { DocumentRag }       from '@@plugins/DocumentRag'
 import { OpenAIProvider }    from '@@providers/OpenAIProvider'
+import { QdrantVectorStore } from '@@stores/QdrantVectorStore'
 import type { RagResponse }  from '@@models/RagResponse'
 
 describe('DocumentRag — PDF ingest and source-cited query', async function () {
@@ -1052,6 +1161,7 @@ describe('DocumentRag — PDF ingest and source-cited query', async function () 
     rag = new DocumentRag({
       chatProvider:      provider,
       embeddingProvider: provider,
+      vectorStore:       new QdrantVectorStore(),
     })
     const pdfBuffer = readFileSync('test/assets/Sample.pdf')
     const result    = await rag.ingest(pdfBuffer)
@@ -1081,22 +1191,25 @@ describe('DocumentRag — PDF ingest and source-cited query', async function () 
 
 | Step | Action | File(s) |
 |------|--------|---------|
-| 1 | CREATE | `src/models/Metadata.ts`, `Chunk.ts`, `Message.ts`, `RagResponse.ts` |
-| 2 | CREATE | `src/providers/ChatProvider.ts`, `EmbeddingProvider.ts` |
-| 2 | CREATE | `src/providers/OpenAIProvider.ts`, `AnthropicProvider.ts`, `GeminiProvider.ts` |
-| 3 | CREATE | `src/models/RagConfig.ts` |
-| 4 | MODIFY | `src/services/TextChunker.service.ts` |
-| 5 | MODIFY | `src/services/EmbeddingProcessing.service.ts` |
-| 6 | MODIFY | `src/services/EmbeddingManagement.service.ts` |
-| 7 | CREATE | `src/RagPlugin.ts`, `src/plugins/` directory |
-| 8 | CREATE | `src/plugins/ConversationalRag.ts` |
-| 9 | CREATE | `src/plugins/DocumentRag.ts` |
-| 10 | MODIFY | `tsconfig.json` |
-| 11 | CREATE | `src/index.ts` |
-| 12 | MODIFY | `package.json` |
-| 13 | DELETE | `src/functions/textChunker.function.ts` |
-| 14 | MODIFY | `test/integration/textEmbeddingAndQuery.spec.ts`, `pdfEmbeddingAndQuery.spec.ts` |
-| 15 | CREATE | `test/integration/conversationalRag.spec.ts`, `documentRag.spec.ts` |
+| 1  | CREATE | `src/models/Metadata.ts`, `Chunk.ts`, `Message.ts`, `RagResponse.ts` |
+| 2  | CREATE | `src/providers/ChatProvider.ts`, `EmbeddingProvider.ts` |
+| 2  | CREATE | `src/providers/OpenAIProvider.ts`, `AnthropicProvider.ts`, `GeminiProvider.ts` |
+| 3  | CREATE | `src/stores/VectorStore.ts`, `QdrantVectorStore.ts` |
+| 4  | CREATE | `src/models/RagConfig.ts` |
+| 5  | MODIFY | `src/services/EmbeddingManagement.service.ts` |
+| 6  | MODIFY | `src/services/EmbeddingProcessing.service.ts` |
+| 7  | MODIFY | `src/services/TextChunker.service.ts` |
+| 8  | CREATE | `src/RagPlugin.ts`, `src/plugins/` directory |
+| 9  | CREATE | `src/plugins/ConversationalRag.ts` |
+| 10 | CREATE | `src/plugins/DocumentRag.ts` |
+| 11 | MODIFY | `tsconfig.json` |
+| 12 | CREATE | `src/index.ts` |
+| 13 | MODIFY | `package.json` |
+| 14 | DELETE | `src/functions/textChunker.function.ts`, `src/utils/connectionManager.util.ts` |
+| 15 | MODIFY | `test/integration/textEmbeddingAndQuery.spec.ts`, `pdfEmbeddingAndQuery.spec.ts` |
+| 16 | CREATE | `test/integration/conversationalRag.spec.ts`, `documentRag.spec.ts` |
+
+Also delete: `IMPLEMENTATION_PLAN.md` (superseded by this document).
 
 ---
 
@@ -1107,15 +1220,15 @@ describe('DocumentRag — PDF ingest and source-cited query', async function () 
 bun run tsc --noEmit
 ```
 Expect zero errors. Common failure causes:
-- Missing `@@plugins/*` or `@@providers/*` alias → check Step 10
-- `AnthropicProvider` or `GeminiProvider` type errors if optional packages not installed → install them or exclude from compile with conditional imports
-- `assemblePrompt` returns `Message[]` — ensure `chatProvider.complete()` accepts `Message[]` not `ChatCompletionMessageParam[]`
+- Missing `@@plugins/*`, `@@providers/*`, or `@@stores/*` alias → check Step 11
+- `QdrantClient.upsert` status type → cast `result.status` to `'acknowledged' | 'completed'`
+- `Buffer.isBuffer` not in scope → add `const { Buffer } = await import('node:buffer')` inside `RagPlugin.ingest()` if needed
 
-### 2. Existing integration tests (updated per Step 14)
+### 2. Existing integration tests (updated per Step 15)
 ```bash
 bun run setup   # starts Qdrant via docker-compose, runs all tests
 ```
-`textEmbeddingAndQuery.spec.ts` and `pdfEmbeddingAndQuery.spec.ts` must still pass after the constructor and `chunkFn` updates.
+Both existing tests must pass after the constructor and `chunkFn` updates.
 
 ### 3. New integration tests
 ```bash
@@ -1129,15 +1242,14 @@ Requires Qdrant running and valid `OPENAI_API_KEY` in `.env`.
 
 | File | Reason |
 |------|--------|
-| `src/services/EmbeddingQuery.service.ts` | No LLM calls; unchanged |
-| `src/utils/connectionManager.util.ts` | Qdrant singleton; unchanged |
+| `src/services/EmbeddingQuery.service.ts` | No LLM or DB calls — uses injected services only; unchanged |
 | `src/utils/hashing.util.ts` | No changes needed |
 | `src/validators/TextChunker.validator.ts` | Still used in `TextChunkerService` to validate JSON response |
-| `src/validators/CreateEmbedding.validator.ts` | Can be kept (no longer used in the new flow but not harmful) |
-| `src/validators/TextChunkEmbedding.validator.ts` | Can be kept |
+| `src/validators/CreateEmbedding.validator.ts` | No longer used in new flow; harmless to keep |
+| `src/validators/TextChunkEmbedding.validator.ts` | No longer used in new flow; harmless to keep |
 | `src/models/TextChunk.ts` | Internal chunker type; `Chunk` is additive |
 | `src/models/TextEmbedding.ts` | Still used internally by services |
-| `src/models/EmbeddingResult.ts` | Reused as return type of `ingest()` |
+| `src/models/EmbeddingResult.ts` | Return type of `ingest()` |
 | `src/models/EmbeddingInsertResult.ts` | No changes needed |
 | `test/assets/` | No changes |
 | `docker-compose.yml` | No changes |
@@ -1145,31 +1257,73 @@ Requires Qdrant running and valid `OPENAI_API_KEY` in `.env`.
 
 ---
 
-## Building a Domain Plugin (Reference)
+## Adding a Custom Vector Store (Developer Reference)
 
-A domain-specific plugin (e.g. `LegalDocumentRag` for a property risk use case) lives in a separate package. It extends `RagPlugin` with domain-specific hooks and inherits everything else.
+Implement the three-method `VectorStore` interface and pass an instance via `RagConfig.vectorStore`:
 
 ```typescript
-import { RagPlugin } from 'rag-time'
+import type {
+  VectorStore,
+  VectorPoint,
+  VectorSearchResult,
+  VectorStoreInsertResult,
+} from 'rag-time'
+
+export class PineconeVectorStore implements VectorStore {
+  constructor(private config: { apiKey: string; indexName: string }) {}
+
+  async exists(collectionId: string): Promise<boolean> {
+    // check if namespace exists in the Pinecone index
+  }
+
+  async insert(collectionId: string, points: VectorPoint[]): Promise<VectorStoreInsertResult> {
+    // upsert vectors into Pinecone namespace = collectionId
+    return { collectionId, status: 'completed' }
+  }
+
+  async search(
+    collectionId: string,
+    queryVector:  number[],
+    limit:        number,
+  ): Promise<VectorSearchResult[]> {
+    // query Pinecone namespace, map results to VectorSearchResult[]
+  }
+}
+
+const rag = new ConversationalRag({
+  chatProvider:      new AnthropicProvider({ apiKey: '...' }),
+  embeddingProvider: new OpenAIProvider({ apiKey: '...' }),
+  vectorStore:       new PineconeVectorStore({ apiKey: '...', indexName: 'my-index' }),
+})
+```
+
+---
+
+## Building a Domain Plugin (Developer Reference)
+
+```typescript
+import {
+  RagPlugin,
+  QdrantVectorStore,
+  AnthropicProvider,
+  OpenAIProvider,
+} from 'rag-time'
 import type { Chunk } from 'rag-time'
 
 interface LegalMetadata {
   clauseNumber?:   string
   sectionHeading?: string
   pageNumber?:     number
-  documentType?:   string
   limitationType?: string
 }
 
 export class LegalDocumentRag extends RagPlugin {
-  // Override: clause-boundary aware chunking
   protected async chunk(text: string): Promise<Chunk<LegalMetadata>[]> {
     // Parse numbered/lettered clause structure (1., 1.1, (a), etc.)
     // Detect headings, limitation of liability blocks, break clauses
     // Return chunks with populated LegalMetadata
   }
 
-  // Override: citation-first context — clause + heading + page
   protected presentContext(chunks: Chunk<LegalMetadata>[]): string {
     return chunks.map((chunk, i) => {
       const ref = [
@@ -1181,7 +1335,6 @@ export class LegalDocumentRag extends RagPlugin {
     }).join('\n\n')
   }
 
-  // Override: legal analysis system prompt
   protected buildSystemPrompt(): string {
     return (
       'You are a legal document analyst specialising in property risk. '
@@ -1191,23 +1344,13 @@ export class LegalDocumentRag extends RagPlugin {
     )
   }
 
-  // Override: expand legal query terms
-  protected async expandQuery(query: string): Promise<string[]> {
-    // e.g. "termination rights" → ["termination", "right to terminate", "notice period"]
-    return [query]  // implement with domain term dictionary or LLM call
-  }
-
-  // ingest(), query(), token budget, history compaction — all inherited, fully working
+  // ingest(), query(), token budget, history compaction — all inherited
 }
-```
 
-The provider is injected at construction time:
-```typescript
-const anthropic = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! })
-const openai    = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY! })
-
+// Anthropic for reasoning, OpenAI for embeddings (Anthropic has no embeddings API)
 const rag = new LegalDocumentRag({
-  chatProvider:      anthropic,  // Claude for legal reasoning
-  embeddingProvider: openai,     // OpenAI for embeddings (Anthropic has no embeddings API)
+  chatProvider:      new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! }),
+  embeddingProvider: new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY! }),
+  vectorStore:       new QdrantVectorStore(),
 })
 ```
