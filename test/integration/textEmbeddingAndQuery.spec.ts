@@ -1,9 +1,9 @@
 import dotenv from 'dotenv'
 import OpenAI from 'openai'
 import { beforeAll, describe, expect, it, setDefaultTimeout } from 'bun:test'
-import { EmbeddingProcessingService } from '@@services/EmbeddingProcessing.service'
-import { EmbeddingQueryService } from '@@services/EmbeddingQuery.service'
-import { EmbeddingManagementService } from '@@services/EmbeddingManagement.service'
+import { EmbeddingProcessingService } from '@/services/EmbeddingProcessing.service'
+import { EmbeddingQueryService } from '@/services/EmbeddingQuery.service'
+import { EmbeddingManagementService } from '@/services/EmbeddingManagement.service'
 
 describe('Tests the embedding of text chunks from text array and querying and response of the embedded text', async function() {
   setDefaultTimeout(60000)
