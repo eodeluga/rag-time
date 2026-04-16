@@ -1,6 +1,6 @@
-import { QdrantDbConnection } from '@@utils/connectionManager.util'
-import type { TextEmbedding } from '@@models/TextEmbedding'
-import { EmbeddingInsertResult } from '@@models/EmbeddingInsertResult'
+import { QdrantDbConnection } from '@/utils/connectionManager.util'
+import type { TextEmbedding } from '@/models/TextEmbedding'
+import type { EmbeddingInsertResult } from '@/models/EmbeddingInsertResult'
 
 /**
  * Manages embeddings within a Qdrant database.
@@ -17,7 +17,7 @@ export class EmbeddingManagementService {
   * @returns {Promise<boolean>} - A promise that resolves to `true` if the collection exists, otherwise `false`.
   */
   async embeddingExists(embeddingId: string) {
-    const client = await QdrantDbConnection.getQdrantClient()
+    const client = QdrantDbConnection.getQdrantClient()
     const { exists } = await client.collectionExists(embeddingId)
     return exists
   }
@@ -40,13 +40,19 @@ export class EmbeddingManagementService {
       },
     }))
 
-    const client = await QdrantDbConnection.getQdrantClient()
+    const client = QdrantDbConnection.getQdrantClient()
 
     await client.createCollection(embeddingId, {
-      vectors: {
-        size: qdrantPoints[0].vector.length,
-        distance: 'Cosine',
-      },
+      ...(
+        qdrantPoints[0]
+          ? {
+            vectors: {
+              size: qdrantPoints[0].vector.length,
+              distance: 'Cosine',
+            },
+          }
+          : {}
+      ),
       optimizers_config: {
         default_segment_number: 2,
       },
@@ -73,7 +79,7 @@ export class EmbeddingManagementService {
   */
   async searchByEmbedding(collectionId: string, opts: { embedding: TextEmbedding, limit: number }): Promise<string[]> {
     const { embedding, limit } = opts
-    const client = await QdrantDbConnection.getQdrantClient()
+    const client = QdrantDbConnection.getQdrantClient()
     const results = await client.search(collectionId, {
       vector: embedding.vector,
       limit,

@@ -1,5 +1,5 @@
-import { EmbeddingManagementService } from '@@services/EmbeddingManagement.service'
-import { EmbeddingProcessingService } from '@@services/EmbeddingProcessing.service'
+import { EmbeddingManagementService } from '@/services/EmbeddingManagement.service'
+import { EmbeddingProcessingService } from '@/services/EmbeddingProcessing.service'
 
 /**
 * Service for querying embeddings within collections and across multiple collections.
@@ -36,9 +36,14 @@ export class EmbeddingQueryService {
   * @returns {Promise<string[]>} - A promise that resolves to an array of similar items.
   */
   async query(query: string, embeddingId: string, limit = 1): Promise<string[]> {
-    const queryEmbedding = await this.embeddingProcessingService.createTextEmbedding(query)    
+    const queryEmbedding = (await this.embeddingProcessingService.createTextEmbedding(query))[0]
+    
+    if (!queryEmbedding) {
+      throw new Error('Embedding is empty')
+    }
+    
     return this.embeddingManagementService.searchByEmbedding(embeddingId, {
-      embedding: queryEmbedding[0],
+      embedding: queryEmbedding,
       limit,
     })
   }
@@ -52,11 +57,15 @@ export class EmbeddingQueryService {
   * @returns {Promise<string[]>} - A promise that resolves to an array of similar items from all collections.
   */
   async queryCollections(query: string, embeddingIds: string[], limit = 1): Promise<string[]> {
-    const queryEmbedding = await this.embeddingProcessingService.createTextEmbedding(query)
+    const queryEmbedding = (await this.embeddingProcessingService.createTextEmbedding(query))[0]
+    
+    if (!queryEmbedding) {
+      throw new Error('Embedding is empty')
+    }
     
     const searchPromises = embeddingIds.map(embedding => 
       this.embeddingManagementService.searchByEmbedding(embedding, {
-        embedding: queryEmbedding[0],
+        embedding: queryEmbedding,
         limit,
       })
     )

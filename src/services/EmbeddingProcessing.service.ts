@@ -1,12 +1,12 @@
 import type OpenAI from 'openai'
 import { promises as fs } from 'fs'
 import pdfparse from 'pdf-parse-debugging-disabled'
-import { CreateEmbeddingValidator } from '@@validators/CreateEmbedding.validator'
-import { TextChunkerService } from '@@services/TextChunker.service'
-import { EmbeddingManagementService } from '@@services/EmbeddingManagement.service'
-import { hashBuffer } from '@@utils/hashing.util'
-import { EmbeddingResult } from '@@models/EmbeddingResult'
-import { TextEmbedding } from '@@models/TextEmbedding'
+import { CreateEmbeddingValidator } from '@/validators/CreateEmbedding.validator'
+import { TextChunkerService } from '@/services/TextChunker.service'
+import { EmbeddingManagementService } from '@/services/EmbeddingManagement.service'
+import { hashString } from '@/utils/hashing.util'
+import type { EmbeddingResult } from '@/models/EmbeddingResult'
+import type { TextEmbedding } from '@/models/TextEmbedding'
 
 /**
  * Service for processing embeddings using OpenAI's models and managing them in a Qdrant database.
@@ -81,11 +81,8 @@ export class EmbeddingProcessingService {
   */
   async embedText(text: string | string[]): Promise<EmbeddingResult> {
     try {
-      const { Buffer } = await import('node:buffer')
       const textAsString = `${Array.isArray(text) ? text.join() : text}`
-      const buffer = Buffer.from(`${Array.isArray(text) ? text.join() : text}`)
-      const hashAsCollectionId = await hashBuffer(buffer)
-      
+      const hashAsCollectionId = hashString(textAsString)
       const embeddingExists = await this.embeddingManagementService.embeddingExists(hashAsCollectionId)
       
       if (!embeddingExists) {
