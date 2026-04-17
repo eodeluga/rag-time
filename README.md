@@ -36,7 +36,7 @@ This will:
 ### Embed a PDF
 ```ts
 import OpenAI from 'openai'
-import { EmbeddingProcessingService } from '@@services/EmbeddingProcessing.service'
+import { EmbeddingProcessingService } from '@/services/EmbeddingProcessing.service'
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 const embeddingProcessor = new EmbeddingProcessingService(openai)
@@ -56,8 +56,8 @@ const { embeddingId } = await embeddingProcessor.embedText(input)
 
 ### Query a Collection
 ```ts
-import { EmbeddingQueryService } from '@@services/EmbeddingQuery.service'
-import { EmbeddingManagementService } from '@@services/EmbeddingManagement.service'
+import { EmbeddingQueryService } from '@/services/EmbeddingQuery.service'
+import { EmbeddingManagementService } from '@/services/EmbeddingManagement.service'
 
 const queryService = new EmbeddingQueryService(
   new EmbeddingManagementService(),
