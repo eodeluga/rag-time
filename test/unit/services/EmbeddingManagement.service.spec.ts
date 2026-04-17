@@ -1,0 +1,150 @@
+import { describe, expect, it, mock, beforeEach } from 'bun:test'
+import { EmbeddingManagementService } from '@/services/EmbeddingManagement.service'
+import type { VectorStore, VectorPoint, VectorSearchResult, VectorStoreInsertResult } from '@/stores/VectorStore'
+import type { TextEmbedding } from '@/models/TextEmbedding'
+
+const mockExists = mock(async (_collectionId: string): Promise<boolean> => false)
+
+const mockInsert = mock(
+  async (collectionId: string, _points: VectorPoint[]): Promise<VectorStoreInsertResult> => ({
+    collectionId,
+    status: 'completed',
+  })
+)
+
+const mockSearch = mock(
+  async (_collectionId: string, _vector: number[], _limit: number): Promise<VectorSearchResult[]> =>
+    []
+)
+
+const mockVectorStore: VectorStore = {
+  exists: mockExists,
+  insert: mockInsert,
+  search: mockSearch,
+}
+
+const sampleEmbeddings: TextEmbedding[] = [
+  { index: 0, text: 'first chunk', vector: [0.1, 0.2, 0.3] },
+  { index: 1, text: 'second chunk', vector: [0.4, 0.5, 0.6] },
+]
+
+describe('EmbeddingManagementService', () => {
+  beforeEach(() => {
+    mockExists.mockReset()
+    mockInsert.mockReset()
+    mockSearch.mockReset()
+
+    mockExists.mockImplementation(async () => false)
+    mockInsert.mockImplementation(async (collectionId) => ({ collectionId, status: 'completed' }))
+    mockSearch.mockImplementation(async () => [])
+  })
+
+  describe('embeddingExists', () => {
+    it('returns true when vectorStore.exists returns true', async () => {
+      mockExists.mockImplementation(async () => true)
+
+      const service = new EmbeddingManagementService(mockVectorStore)
+      const result = await service.embeddingExists('col-1')
+
+      expect(result).toBeTrue()
+    })
+
+    it('returns false when vectorStore.exists returns false', async () => {
+      const service = new EmbeddingManagementService(mockVectorStore)
+      const result = await service.embeddingExists('col-1')
+
+      expect(result).toBeFalse()
+    })
+
+    it('passes the embeddingId to vectorStore.exists', async () => {
+      const service = new EmbeddingManagementService(mockVectorStore)
+      await service.embeddingExists('my-collection')
+
+      expect(mockExists.mock.calls[0]?.[0]).toBe('my-collection')
+    })
+  })
+
+  describe('insertEmbedding', () => {
+    it('returns EmbeddingInsertResult with embeddingId and status', async () => {
+      const service = new EmbeddingManagementService(mockVectorStore)
+      const result = await service.insertEmbedding('col-1', sampleEmbeddings)
+
+      expect(result.embeddingId).toBe('col-1')
+      expect(result.status).toBe('completed')
+    })
+
+    it('maps TextEmbedding to VectorPoints with text and index in payload', async () => {
+      let capturedPoints: VectorPoint[] = []
+
+      mockInsert.mockImplementation(async (collectionId, points) => {
+        capturedPoints = points
+        return { collectionId, status: 'completed' }
+      })
+
+      const service = new EmbeddingManagementService(mockVectorStore)
+      await service.insertEmbedding('col-1', sampleEmbeddings)
+
+      expect(capturedPoints).toHaveLength(2)
+      expect(capturedPoints[0]?.id).toBe(0)
+      expect(capturedPoints[0]?.vector).toEqual([0.1, 0.2, 0.3])
+      expect(capturedPoints[0]?.payload['text']).toBe('first chunk')
+      expect(capturedPoints[0]?.payload['index']).toBe(0)
+    })
+
+    it('merges optional metadata into each point payload', async () => {
+      let capturedPoints: VectorPoint[] = []
+
+      mockInsert.mockImplementation(async (collectionId, points) => {
+        capturedPoints = points
+        return { collectionId, status: 'completed' }
+      })
+
+      const service = new EmbeddingManagementService(mockVectorStore)
+      await service.insertEmbedding('col-1', sampleEmbeddings, { source: 'doc.pdf' })
+
+      expect(capturedPoints[0]?.payload['source']).toBe('doc.pdf')
+      expect(capturedPoints[0]?.payload['text']).toBe('first chunk')
+    })
+  })
+
+  describe('searchByEmbedding', () => {
+    it('returns text strings extracted from payload', async () => {
+      mockSearch.mockImplementation(async () => [
+        { id: 0, payload: { text: 'first chunk text', index: 0 }, score: 0.9 },
+        { id: 1, payload: { text: 'second chunk text', index: 1 }, score: 0.7 },
+      ])
+
+      const service = new EmbeddingManagementService(mockVectorStore)
+      const embedding: TextEmbedding = { index: 0, text: 'query', vector: [0.1, 0.2] }
+      const results = await service.searchByEmbedding('col-1', { embedding, limit: 2 })
+
+      expect(results).toEqual(['first chunk text', 'second chunk text'])
+    })
+
+    it('passes the query vector and limit to vectorStore.search', async () => {
+      mockSearch.mockImplementation(async () => [])
+
+      const service = new EmbeddingManagementService(mockVectorStore)
+      const queryVector = [0.5, 0.6, 0.7]
+      const embedding: TextEmbedding = { index: 0, text: 'query', vector: queryVector }
+      await service.searchByEmbedding('col-1', { embedding, limit: 5 })
+
+      const [collectionId, vector, limit] = mockSearch.mock.calls[0]!
+      expect(collectionId).toBe('col-1')
+      expect(vector).toEqual(queryVector)
+      expect(limit).toBe(5)
+    })
+
+    it('returns empty string for results with missing text payload', async () => {
+      mockSearch.mockImplementation(async () => [
+        { id: 0, payload: {}, score: 0.9 },
+      ])
+
+      const service = new EmbeddingManagementService(mockVectorStore)
+      const embedding: TextEmbedding = { index: 0, text: 'q', vector: [0.1] }
+      const results = await service.searchByEmbedding('col-1', { embedding, limit: 1 })
+
+      expect(results[0]).toBe('')
+    })
+  })
+})
