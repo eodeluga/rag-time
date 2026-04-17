@@ -1,4 +1,4 @@
-import { RagPlugin } from '../RagPlugin'
+import { RagPlugin } from './RagPlugin'
 import type { Chunk } from '../models/Chunk'
 
 class DocumentRag extends RagPlugin {

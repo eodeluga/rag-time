@@ -1,4 +1,4 @@
-import { RagPlugin } from '../RagPlugin'
+import { RagPlugin } from './RagPlugin'
 
 class ConversationalRag extends RagPlugin {}
 

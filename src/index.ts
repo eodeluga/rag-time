@@ -1,4 +1,4 @@
-export { RagPlugin } from './RagPlugin'
+export { RagPlugin } from './plugins/RagPlugin'
 export { ConversationalRag } from './plugins/ConversationalRag'
 export { DocumentRag } from './plugins/DocumentRag'
 
