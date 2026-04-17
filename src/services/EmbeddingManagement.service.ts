@@ -1,60 +1,35 @@
-import { QdrantDbConnection } from '@/utils/connectionManager.util'
-import { VectorStoreError } from '@/errors/vector-store.error'
+import type { VectorStore } from '@/stores/VectorStore'
+import type { Metadata } from '@/models/Metadata'
 import type { TextEmbedding } from '@/models/TextEmbedding'
 import type { EmbeddingInsertResult } from '@/models/EmbeddingInsertResult'
 
 class EmbeddingManagementService {
+  private vectorStore: VectorStore
+
+  constructor(vectorStore: VectorStore) {
+    this.vectorStore = vectorStore
+  }
+
   async embeddingExists(embeddingId: string): Promise<boolean> {
-    try {
-      const client = QdrantDbConnection.getQdrantClient()
-      const { exists } = await client.collectionExists(embeddingId)
-      return exists
-    } catch (err) {
-      throw new VectorStoreError(`Failed to check collection existence: ${embeddingId}`, err)
-    }
+    return this.vectorStore.exists(embeddingId)
   }
 
   async insertEmbedding(
     embeddingId: string,
-    textEmbeddingArr: TextEmbedding[]
+    textEmbeddingArr: TextEmbedding[],
+    metadata?: Metadata
   ): Promise<EmbeddingInsertResult> {
-    if (textEmbeddingArr.length === 0) {
-      throw new VectorStoreError('Cannot insert an empty embedding array')
-    }
-
-    const qdrantPoints = textEmbeddingArr.map((textEmbedding) => ({
-      id: textEmbedding.index,
-      payload: {
-        index: textEmbedding.index,
-        text: textEmbedding.text,
-      },
-      vector: textEmbedding.vector,
+    const points = textEmbeddingArr.map((embedding) => ({
+      id: embedding.index,
+      payload: { index: embedding.index, text: embedding.text, ...(metadata ?? {}) },
+      vector: embedding.vector,
     }))
 
-    try {
-      const client = QdrantDbConnection.getQdrantClient()
+    const result = await this.vectorStore.insert(embeddingId, points)
 
-      await client.createCollection(embeddingId, {
-        optimizers_config: {
-          default_segment_number: 2,
-        },
-        replication_factor: 2,
-        vectors: {
-          distance: 'Cosine',
-          size: qdrantPoints[0]!.vector.length,
-        },
-      })
-
-      const { status } = await client.upsert(embeddingId, {
-        points: qdrantPoints,
-      })
-
-      return {
-        embeddingId,
-        status,
-      }
-    } catch (err) {
-      throw new VectorStoreError(`Failed to insert embedding into collection: ${embeddingId}`, err)
+    return {
+      embeddingId: result.collectionId,
+      status: result.status as 'acknowledged' | 'completed',
     }
   }
 
@@ -62,17 +37,13 @@ class EmbeddingManagementService {
     collectionId: string,
     opts: { embedding: TextEmbedding; limit: number }
   ): Promise<string[]> {
-    try {
-      const client = QdrantDbConnection.getQdrantClient()
-      const results = await client.search(collectionId, {
-        limit: opts.limit,
-        vector: opts.embedding.vector,
-      })
+    const results = await this.vectorStore.search(
+      collectionId,
+      opts.embedding.vector,
+      opts.limit
+    )
 
-      return results.map((result) => (result.payload?.['text'] as string) ?? '')
-    } catch (err) {
-      throw new VectorStoreError(`Failed to search collection: ${collectionId}`, err)
-    }
+    return results.map((result) => (result.payload['text'] as string) ?? '')
   }
 }
 

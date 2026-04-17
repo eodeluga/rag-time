@@ -1,60 +1,65 @@
-import type OpenAI from 'openai'
 import { promises as fs } from 'fs'
 import pdfparse from 'pdf-parse-debugging-disabled'
-import { CreateEmbeddingValidator } from '@/validators/CreateEmbedding.validator'
-import { TextChunkerService } from '@/services/TextChunker.service'
 import { EmbeddingManagementService } from '@/services/EmbeddingManagement.service'
 import { EmbeddingError } from '@/errors/embedding.error'
 import { PdfParseError } from '@/errors/pdf-parse.error'
 import { hashString } from '@/utils/hashing.util'
+import type { EmbeddingProvider } from '@/providers/EmbeddingProvider'
+import type { Metadata } from '@/models/Metadata'
 import type { EmbeddingResult } from '@/models/EmbeddingResult'
+import type { TextChunk } from '@/models/TextChunk'
 import type { TextEmbedding } from '@/models/TextEmbedding'
+
+interface EmbedOpts {
+  chunkFn?: (text: string) => Promise<TextChunk[]>
+  metadata?: Metadata
+}
 
 class EmbeddingProcessingService {
   private embeddingManagementService: EmbeddingManagementService
-  private llm: OpenAI
-  private model: string
-  private textChunkerService: TextChunkerService
+  private embeddingProvider: EmbeddingProvider
 
-  constructor(llm: OpenAI, model = 'text-embedding-ada-002') {
-    this.embeddingManagementService = new EmbeddingManagementService()
-    this.llm = llm
-    this.model = model
-    this.textChunkerService = new TextChunkerService(llm)
+  constructor(
+    embeddingProvider: EmbeddingProvider,
+    embeddingManagementService: EmbeddingManagementService
+  ) {
+    this.embeddingManagementService = embeddingManagementService
+    this.embeddingProvider = embeddingProvider
   }
 
   async createTextEmbedding(input: string | string[]): Promise<TextEmbedding[]> {
     const inputs = Array.isArray(input) ? input : [input]
+    const vectors = await this.embeddingProvider.embed(inputs)
 
-    const response = await this.llm.embeddings.create({
-      input: inputs,
-      model: this.model,
+    return vectors.map((item) => {
+      const text = inputs[item.index]
+
+      if (!text) {
+        throw new EmbeddingError(`Text not found at embedding index ${item.index}`)
+      }
+
+      return {
+        index: item.index,
+        text,
+        vector: item.vector,
+      } satisfies TextEmbedding
     })
-
-    return CreateEmbeddingValidator.parse(response.data)
-      .map((item) => {
-        const text = inputs[item.index]
-
-        if (!text) {
-          throw new EmbeddingError(`Text not found at embedding index ${item.index}`)
-        }
-
-        return {
-          index: item.index,
-          text,
-          vector: item.embedding,
-        } satisfies TextEmbedding
-      })
   }
 
-  async embedText(text: string | string[]): Promise<EmbeddingResult> {
+  async embedText(text: string | string[], opts?: EmbedOpts): Promise<EmbeddingResult> {
     try {
       const textAsString = Array.isArray(text) ? text.join() : text
       const hashAsCollectionId = hashString(textAsString)
       const embeddingExists = await this.embeddingManagementService.embeddingExists(hashAsCollectionId)
 
       if (!embeddingExists) {
-        const chunkedTexts = await this.textChunkerService.chunk(textAsString)
+        if (!opts?.chunkFn) {
+          throw new EmbeddingError(
+            'chunkFn is required. Pass a TextChunkerService.chunk bound method via opts.chunkFn.'
+          )
+        }
+
+        const chunkedTexts = await opts.chunkFn(textAsString)
 
         const combinedTextWithSummary = chunkedTexts.map((chunk, index) => ({
           index,
@@ -67,7 +72,11 @@ class EmbeddingProcessingService {
           combinedTextWithSummary.map((chunk) => chunk.text)
         )
 
-        await this.embeddingManagementService.insertEmbedding(hashAsCollectionId, textEmbedding)
+        await this.embeddingManagementService.insertEmbedding(
+          hashAsCollectionId,
+          textEmbedding,
+          opts?.metadata
+        )
       }
 
       return {
@@ -81,7 +90,7 @@ class EmbeddingProcessingService {
     }
   }
 
-  async embedPDF(filePath: string): Promise<EmbeddingResult> {
+  async embedPDF(filePath: string, opts?: EmbedOpts): Promise<EmbeddingResult> {
     let buffer: Buffer
 
     try {
@@ -92,7 +101,7 @@ class EmbeddingProcessingService {
 
     try {
       const { text } = await pdfparse(buffer)
-      return this.embedText(text)
+      return this.embedText(text, opts)
     } catch (err) {
       throw new PdfParseError('Failed to parse PDF content', err)
     }
