@@ -23,9 +23,16 @@
     "baseUrl": ".",
     "outDir": "dist",
     "paths": {
-      "@/*": [
-        "src/*"
-      ]
+      "@/errors/*":     ["src/errors/*"],
+      "@/functions/*":  ["src/functions/*"],
+      "@/models/*":     ["src/models/*"],
+      "@/plugins/*":    ["src/plugins/*"],
+      "@/providers/*":  ["src/providers/*"],
+      "@/schemas/*":    ["src/schemas/*"],
+      "@/services/*":   ["src/services/*"],
+      "@/stores/*":     ["src/stores/*"],
+      "@/utils/*":      ["src/utils/*"],
+      "@/validators/*": ["src/validators/*"]
     },
     "resolveJsonModule": true,
     "skipLibCheck": true,

@@ -20,6 +20,10 @@
     "jiti": "2.6.1",
     "typescript-eslint": "8.58.2"
   },
+  "optionalDependencies": {
+    "@anthropic-ai/sdk": "^0.54.0",
+    "@google/generative-ai": "^0.24.0"
+  },
   "dependencies": {
     "@qdrant/qdrant-js": "1.17.0",
     "dotenv": "16.6.1",
