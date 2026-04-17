@@ -1,10 +1,10 @@
 import dotenv from 'dotenv'
-import { EmbeddingProcessingService } from '@/services/EmbeddingProcessing.service'
-import { EmbeddingQueryService } from '@/services/EmbeddingQuery.service'
-import { EmbeddingManagementService } from '@/services/EmbeddingManagement.service'
-import { TextChunkerService } from '@/services/TextChunker.service'
-import { OpenAIProvider } from '@/providers/OpenAIProvider'
-import { QdrantVectorStore } from '@/stores/QdrantVectorStore'
+import { EmbeddingProcessingService } from '@/services/embedding-processing.service'
+import { EmbeddingQueryService } from '@/services/embedding-query.service'
+import { EmbeddingManagementService } from '@/services/embedding-management.service'
+import { TextChunkerService } from '@/services/text-chunker.service'
+import { OpenAIProvider } from '@/providers/open-ai.provider'
+import { QdrantVectorStore } from '@/stores/qdrant-vector.store'
 import { it, describe, expect, beforeAll, setDefaultTimeout } from 'bun:test'
 
 describe('Tests the embedding of text chunks from PDF and the querying and response of the embedded text', async function() {

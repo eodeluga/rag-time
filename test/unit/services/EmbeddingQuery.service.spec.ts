@@ -1,9 +1,9 @@
 import { describe, expect, it, mock, beforeEach } from 'bun:test'
-import { EmbeddingQueryService } from '@/services/EmbeddingQuery.service'
-import { EmbeddingManagementService } from '@/services/EmbeddingManagement.service'
-import { EmbeddingProcessingService } from '@/services/EmbeddingProcessing.service'
-import type { EmbeddingProvider, EmbeddingVector } from '@/providers/EmbeddingProvider'
-import type { VectorStore, VectorPoint, VectorSearchResult, VectorStoreInsertResult } from '@/stores/VectorStore'
+import { EmbeddingQueryService } from '@/services/embedding-query.service'
+import { EmbeddingManagementService } from '@/services/embedding-management.service'
+import { EmbeddingProcessingService } from '@/services/embedding-processing.service'
+import type { EmbeddingProvider, EmbeddingVector } from '@/models/embedding-provider.model'
+import type { VectorStore, VectorPoint, VectorSearchResult, VectorStoreInsertResult } from '@/models/vector-store.model'
 
 const queryVector = [0.5, 0.6, 0.7]
 

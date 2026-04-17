@@ -1,10 +1,10 @@
 import { describe, expect, it, mock, beforeEach } from 'bun:test'
-import { EmbeddingProcessingService } from '@/services/EmbeddingProcessing.service'
-import { EmbeddingManagementService } from '@/services/EmbeddingManagement.service'
+import { EmbeddingProcessingService } from '@/services/embedding-processing.service'
+import { EmbeddingManagementService } from '@/services/embedding-management.service'
 import { EmbeddingError } from '@/errors/embedding.error'
-import type { EmbeddingProvider, EmbeddingVector } from '@/providers/EmbeddingProvider'
-import type { VectorStore, VectorPoint, VectorSearchResult, VectorStoreInsertResult } from '@/stores/VectorStore'
-import type { TextChunk } from '@/models/TextChunk'
+import type { EmbeddingProvider, EmbeddingVector } from '@/models/embedding-provider.model'
+import type { VectorStore, VectorPoint, VectorSearchResult, VectorStoreInsertResult } from '@/models/vector-store.model'
+import type { TextChunk } from '@/models/text-chunk.model'
 
 const mockEmbed = mock(
   async (_inputs: string[]): Promise<EmbeddingVector[]> => [

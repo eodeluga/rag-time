@@ -1,9 +1,9 @@
 import dotenv from 'dotenv'
 import { beforeAll, describe, expect, it, setDefaultTimeout } from 'bun:test'
-import { ConversationalRag } from '@/plugins/ConversationalRag'
-import { OpenAIProvider } from '@/providers/OpenAIProvider'
-import { QdrantVectorStore } from '@/stores/QdrantVectorStore'
-import type { RagResponse } from '@/models/RagResponse'
+import { ConversationalRag } from '@/plugins/conversational.plugin'
+import { OpenAIProvider } from '@/providers/open-ai.provider'
+import { QdrantVectorStore } from '@/stores/qdrant-vector.store'
+import type { RagResponse } from '@/models/rag-response.model'
 
 describe('ConversationalRag — end-to-end ingest and query', async function() {
   setDefaultTimeout(120000)

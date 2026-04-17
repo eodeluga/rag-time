@@ -1,4 +1,4 @@
-import { BaseError } from './base.error'
+import { BaseError } from '@/errors/base.error'
 
 class PdfParseError extends BaseError {
   constructor(message: string, details?: unknown) {

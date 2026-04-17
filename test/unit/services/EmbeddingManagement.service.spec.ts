@@ -1,7 +1,7 @@
 import { describe, expect, it, mock, beforeEach } from 'bun:test'
-import { EmbeddingManagementService } from '@/services/EmbeddingManagement.service'
-import type { VectorStore, VectorPoint, VectorSearchResult, VectorStoreInsertResult } from '@/stores/VectorStore'
-import type { TextEmbedding } from '@/models/TextEmbedding'
+import { EmbeddingManagementService } from '@/services/embedding-management.service'
+import type { VectorStore, VectorPoint, VectorSearchResult, VectorStoreInsertResult } from '@/models/vector-store.model'
+import type { TextEmbedding } from '@/models/text-embedding.model'
 
 const mockExists = mock(async (_collectionId: string): Promise<boolean> => false)
 

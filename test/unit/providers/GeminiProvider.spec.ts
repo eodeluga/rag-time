@@ -43,7 +43,7 @@ mock.module('@google/generative-ai', () => ({
   },
 }))
 
-import { GeminiProvider } from '@/providers/GeminiProvider'
+import { GeminiProvider } from '@/providers/gemini.provider'
 
 describe('GeminiProvider', () => {
   beforeEach(() => {

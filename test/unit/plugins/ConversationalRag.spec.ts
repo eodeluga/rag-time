@@ -1,9 +1,9 @@
 import { describe, expect, it, mock, beforeAll, beforeEach } from 'bun:test'
-import { ConversationalRag } from '@/plugins/ConversationalRag'
-import type { ChatProvider, CompletionOptions } from '@/providers/ChatProvider'
-import type { EmbeddingProvider, EmbeddingVector } from '@/providers/EmbeddingProvider'
-import type { VectorStore, VectorPoint, VectorSearchResult, VectorStoreInsertResult } from '@/stores/VectorStore'
-import type { Message } from '@/models/Message'
+import { ConversationalRag } from '@/plugins/conversational.plugin'
+import type { ChatProvider, CompletionOptions } from '@/models/chat-provider.model'
+import type { EmbeddingProvider, EmbeddingVector } from '@/models/embedding-provider.model'
+import type { VectorStore, VectorPoint, VectorSearchResult, VectorStoreInsertResult } from '@/models/vector-store.model'
+import type { Message } from '@/models/message.model'
 
 const chunkJson = JSON.stringify({
   chunks: [{ text: 'Historical fact', summary: 'history' }],

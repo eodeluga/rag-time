@@ -32,7 +32,7 @@ mock.module('openai', () => ({
   },
 }))
 
-import { OpenAIProvider } from '@/providers/OpenAIProvider'
+import { OpenAIProvider } from '@/providers/open-ai.provider'
 
 describe('OpenAIProvider', () => {
   beforeEach(() => {

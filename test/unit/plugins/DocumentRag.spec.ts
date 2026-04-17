@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
-import { DocumentRag } from '@/plugins/DocumentRag'
-import type { Chunk } from '@/models/Chunk'
+import { DocumentRag } from '@/plugins/document.plugin'
+import type { Chunk } from '@/models/chunk.model'
 
 /**
  * Expose protected methods for unit testing via a thin subclass.

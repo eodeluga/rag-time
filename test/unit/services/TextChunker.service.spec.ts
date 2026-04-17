@@ -1,8 +1,8 @@
 import { describe, expect, it, mock, beforeEach } from 'bun:test'
-import { TextChunkerService } from '@/services/TextChunker.service'
+import { TextChunkerService } from '@/services/text-chunker.service'
 import { ChunkingError } from '@/errors/chunking.error'
-import type { ChatProvider, CompletionOptions } from '@/providers/ChatProvider'
-import type { Message } from '@/models/Message'
+import type { ChatProvider, CompletionOptions } from '@/models/chat-provider.model'
+import type { Message } from '@/models/message.model'
 
 const validChunksJson = JSON.stringify({
   chunks: [

@@ -24,7 +24,7 @@ mock.module('@anthropic-ai/sdk', () => ({
   },
 }))
 
-import { AnthropicProvider } from '@/providers/AnthropicProvider'
+import { AnthropicProvider } from '@/providers/anthropic.provider'
 
 describe('AnthropicProvider', () => {
   beforeEach(() => {

@@ -1,34 +1,34 @@
-export { RagPlugin } from './plugins/RagPlugin'
-export { ConversationalRag } from './plugins/ConversationalRag'
-export { DocumentRag } from './plugins/DocumentRag'
+export { BaseRag } from '@/plugins/base.plugin'
+export { ConversationalRag } from '@/plugins/conversational.plugin'
+export { DocumentRag } from '@/plugins/document.plugin'
 
-export type { ChatProvider, CompletionOptions } from './providers/ChatProvider'
-export type { EmbeddingProvider, EmbeddingVector } from './providers/EmbeddingProvider'
+export type { ChatProvider, CompletionOptions } from '@/models/chat-provider.model'
+export type { EmbeddingProvider, EmbeddingVector } from '@/models/embedding-provider.model'
 
-export { AnthropicProvider } from './providers/AnthropicProvider'
-export { GeminiProvider } from './providers/GeminiProvider'
-export { OpenAIProvider } from './providers/OpenAIProvider'
+export { AnthropicProvider } from '@/providers/anthropic.provider'
+export { GeminiProvider } from '@/providers/gemini.provider'
+export { OpenAIProvider } from '@/providers/open-ai.provider'
 
 export type {
   VectorPoint,
   VectorSearchResult,
   VectorStore,
   VectorStoreInsertResult,
-} from './stores/VectorStore'
+} from '@/models/vector-store.model'
 
-export { QdrantVectorStore } from './stores/QdrantVectorStore'
+export { QdrantVectorStore } from '@/stores/qdrant-vector.store'
 
-export { EmbeddingManagementService } from './services/EmbeddingManagement.service'
-export { EmbeddingProcessingService } from './services/EmbeddingProcessing.service'
-export { EmbeddingQueryService } from './services/EmbeddingQuery.service'
-export { TextChunkerService } from './services/TextChunker.service'
+export { EmbeddingManagementService } from '@/services/embedding-management.service'
+export { EmbeddingProcessingService } from '@/services/embedding-processing.service'
+export { EmbeddingQueryService } from '@/services/embedding-query.service'
+export { TextChunkerService } from '@/services/text-chunker.service'
 
-export type { Chunk } from './models/Chunk'
-export type { EmbeddingInsertResult } from './models/EmbeddingInsertResult'
-export type { EmbeddingResult } from './models/EmbeddingResult'
-export type { Message } from './models/Message'
-export type { Metadata } from './models/Metadata'
-export type { RagConfig } from './models/RagConfig'
-export type { RagResponse } from './models/RagResponse'
-export type { TextChunk } from './models/TextChunk'
-export type { TextEmbedding } from './models/TextEmbedding'
+export type { Chunk } from '@/models/chunk.model'
+export type { EmbeddingInsertResult } from '@/models/embedding-insert-result.model'
+export type { EmbeddingResult } from '@/models/embedding-result.model'
+export type { Message } from '@/models/message.model'
+export type { Metadata } from '@/models/metadata.model'
+export type { RagConfig } from '@/models/rag-config.model'
+export type { RagResponse } from '@/models/rag-response.model'
+export type { TextChunk } from '@/models/text-chunk.model'
+export type { TextEmbedding } from '@/models/text-embedding.model'

@@ -1,10 +1,10 @@
 import dotenv from 'dotenv'
 import { readFileSync } from 'fs'
 import { beforeAll, describe, expect, it, setDefaultTimeout } from 'bun:test'
-import { DocumentRag } from '@/plugins/DocumentRag'
-import { OpenAIProvider } from '@/providers/OpenAIProvider'
-import { QdrantVectorStore } from '@/stores/QdrantVectorStore'
-import type { RagResponse } from '@/models/RagResponse'
+import { DocumentRag } from '@/plugins/document.plugin'
+import { OpenAIProvider } from '@/providers/open-ai.provider'
+import { QdrantVectorStore } from '@/stores/qdrant-vector.store'
+import type { RagResponse } from '@/models/rag-response.model'
 
 describe('DocumentRag — PDF ingest and source-cited query', async function() {
   setDefaultTimeout(120000)
