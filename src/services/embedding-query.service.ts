@@ -1,5 +1,5 @@
-import { EmbeddingManagementService } from '@/services/EmbeddingManagement.service'
-import { EmbeddingProcessingService } from '@/services/EmbeddingProcessing.service'
+import { EmbeddingManagementService } from '@/services/embedding-management.service'
+import { EmbeddingProcessingService } from '@/services/embedding-processing.service'
 
 /**
 * Service for querying embeddings within collections and across multiple collections.

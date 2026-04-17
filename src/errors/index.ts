@@ -1,0 +1,5 @@
+export { BaseError } from '@/errors/base.error'
+export { ChunkingError } from '@/errors/chunking.error'
+export { EmbeddingError } from '@/errors/embedding.error'
+export { PdfParseError } from '@/errors/pdf-parse.error'
+export { VectorStoreError } from '@/errors/vector-store.error'

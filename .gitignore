@@ -1,4 +1,5 @@
 build
+dist/
 node_modules
 .env*
 *.map
@@ -7,3 +8,6 @@ node_modules
 docs
 *.md
 !README.md
+.claude/*
+!.claude/rules/
+!.claude/rules/**
