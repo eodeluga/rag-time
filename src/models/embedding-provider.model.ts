@@ -1,8 +1,13 @@
-export interface EmbeddingVector {
+interface EmbeddingVector {
   index: number
   vector: number[]
 }
 
-export interface EmbeddingProvider {
+interface EmbeddingProvider {
   embed(inputs: string[]): Promise<EmbeddingVector[]>
+}
+
+export type {
+  EmbeddingProvider,
+  EmbeddingVector,
 }

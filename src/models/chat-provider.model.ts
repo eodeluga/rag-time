@@ -1,11 +1,16 @@
 import type { Message } from '@/models/message.model'
 
-export interface CompletionOptions {
+interface CompletionOptions {
   jsonMode?: boolean
   temperature?: number
   topP?: number
 }
 
-export interface ChatProvider {
+interface ChatProvider {
   complete(messages: Message[], options?: CompletionOptions): Promise<string>
+}
+
+export type {
+  ChatProvider,
+  CompletionOptions,
 }
