@@ -1,5 +1,6 @@
 import { EmbeddingManagementService } from '@/services/embedding-management.service'
 import { EmbeddingProcessingService } from '@/services/embedding-processing.service'
+import type { RetrievedChunk } from '@/models/retrieved-chunk.model'
 
 /**
 * Service for querying embeddings within collections and across multiple collections.
@@ -33,9 +34,9 @@ export class EmbeddingQueryService {
   * @param {string} query - The query string to search for.
   * @param {string} embeddingId - The ID of the collection to query.
   * @param {number} [limit=1] - The maximum number of results to return.
-  * @returns {Promise<string[]>} - A promise that resolves to an array of similar items.
+  * @returns {Promise<RetrievedChunk[]>} - A promise that resolves to an array of similar items.
   */
-  async query(query: string, embeddingId: string, limit = 1): Promise<string[]> {
+  async query(query: string, embeddingId: string, limit = 1): Promise<RetrievedChunk[]> {
     const queryEmbedding = (await this.embeddingProcessingService.createTextEmbedding(query))[0]
     
     if (!queryEmbedding) {
@@ -54,23 +55,23 @@ export class EmbeddingQueryService {
   * @param {string} query - The query string to search for.
   * @param {string[]} embeddingIds - The IDs of the collections to query.
   * @param {number} [limit=1] - The maximum number of results to return from each collection.
-  * @returns {Promise<string[]>} - A promise that resolves to an array of similar items from all collections.
+  * @returns {Promise<RetrievedChunk[]>} - A promise that resolves to an array of similar items from all collections.
   */
-  async queryCollections(query: string, embeddingIds: string[], limit = 1): Promise<string[]> {
+  async queryCollections(query: string, embeddingIds: string[], limit = 1): Promise<RetrievedChunk[]> {
     const queryEmbedding = (await this.embeddingProcessingService.createTextEmbedding(query))[0]
     
     if (!queryEmbedding) {
       throw new Error('Embedding is empty')
     }
     
-    const searchPromises = embeddingIds.map(embedding => 
-      this.embeddingManagementService.searchByEmbedding(embedding, {
+    const searchPromises = embeddingIds.map((embeddingId) =>
+      this.embeddingManagementService.searchByEmbedding(embeddingId, {
         embedding: queryEmbedding,
         limit,
       })
     )
     
     const results = await Promise.all(searchPromises)
-    return results.flatMap(results => results)
+    return results.flatMap((resultSet) => resultSet)
   }
 }

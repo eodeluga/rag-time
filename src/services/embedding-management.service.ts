@@ -4,6 +4,7 @@ import type { VectorStore } from '@/models/vector-store.model'
 import type { Metadata } from '@/models/metadata.model'
 import type { TextEmbedding } from '@/models/text-embedding.model'
 import type { EmbeddingInsertResult } from '@/models/embedding-insert-result.model'
+import type { RetrievedChunk } from '@/models/retrieved-chunk.model'
 
 class EmbeddingManagementService {
   private vectorStore: VectorStore
@@ -41,7 +42,7 @@ class EmbeddingManagementService {
   async searchByEmbedding(
     collectionId: string,
     opts: { embedding: TextEmbedding; limit: number }
-  ): Promise<string[]> {
+  ): Promise<RetrievedChunk[]> {
     const rawResults = await this.vectorStore.search(
       collectionId,
       opts.embedding.vector,
@@ -49,7 +50,16 @@ class EmbeddingManagementService {
     )
     const validatedResults = rawResults.map((result) => VectorSearchResultValidator.parse(result))
 
-    return validatedResults.map((result) => result.payload.text)
+    return validatedResults.map((result) => {
+      const { text, ...metadata } = result.payload
+
+      return {
+        id: result.id,
+        metadata,
+        score: result.score,
+        text,
+      }
+    })
   }
 }
 

@@ -2,6 +2,7 @@ import pdfparse from 'pdf-parse-debugging-disabled'
 import { EmbeddingProcessingService } from '@/services/embedding-processing.service'
 import { EmbeddingManagementService } from '@/services/embedding-management.service'
 import { EmbeddingQueryService } from '@/services/embedding-query.service'
+import { NoOpRerankerService } from '@/services/no-op-reranker.service'
 import { TextChunkerService } from '@/services/text-chunker.service'
 import { QdrantVectorStore } from '@/stores/qdrant-vector.store'
 import { EmbeddingError } from '@/errors/embedding.error'
@@ -13,6 +14,8 @@ import type { Chunk } from '@/models/chunk.model'
 import type { Message } from '@/models/message.model'
 import type { Metadata } from '@/models/metadata.model'
 import type { EmbeddingResult } from '@/models/embedding-result.model'
+import type { Reranker } from '@/models/reranker.model'
+import type { RetrievedChunk } from '@/models/retrieved-chunk.model'
 import type { TextChunk } from '@/models/text-chunk.model'
 import type { ChatProvider } from '@/models/chat-provider.model'
 
@@ -21,6 +24,7 @@ abstract class BaseRag {
   private chatProvider: ChatProvider
   private embeddingProcessingService: EmbeddingProcessingService
   private embeddingQueryService: EmbeddingQueryService
+  private reranker: Reranker
   private retrievalLimit: number
   private textChunkerService: TextChunkerService
   private tokenBudget: number
@@ -31,6 +35,7 @@ abstract class BaseRag {
     this.candidateLimit = config.retrieval?.candidateLimit ?? 20
     this.chatProvider = config.chatProvider
     this.retrievalLimit = config.retrieval?.limit ?? 5
+    this.reranker = config.reranker ?? new NoOpRerankerService()
     this.tokenBudget = config.tokenBudget ?? 8000
 
     const vectorStore = config.vectorStore ?? new QdrantVectorStore({ url: config.qdrant?.url })
@@ -96,14 +101,19 @@ abstract class BaseRag {
     return Math.ceil(text.length / 4)
   }
 
-  private deduplicateChunks(chunks: Chunk[]): Chunk[] {
-    const seen = new Set<string>()
+  private deduplicateChunks(chunks: RetrievedChunk[]): RetrievedChunk[] {
+    const bestChunkByText = new Map<string, RetrievedChunk>()
 
-    return chunks.filter((chunk) => {
-      if (seen.has(chunk.text)) { return false }
-      seen.add(chunk.text)
-      return true
+    chunks.forEach((chunk) => {
+      const existingChunk = bestChunkByText.get(chunk.text)
+
+      if (!existingChunk || chunk.score > existingChunk.score) {
+        bestChunkByText.set(chunk.text, chunk)
+      }
     })
+
+    return Array.from(bestChunkByText.values())
+      .sort((firstChunk, secondChunk) => secondChunk.score - firstChunk.score)
   }
 
   async ingest(input: Buffer | string, metadata?: Metadata): Promise<EmbeddingResult> {
@@ -148,8 +158,9 @@ abstract class BaseRag {
       )
     )
 
-    const allChunks: Chunk[] = rawResults.flat().map((text) => ({ metadata: {}, text }))
-    const topChunks = this.deduplicateChunks(allChunks).slice(0, this.retrievalLimit)
+    const deduplicatedChunks = this.deduplicateChunks(rawResults.flat())
+    const rerankedChunks = await this.reranker.rerank(validatedQueryInput.question, deduplicatedChunks)
+    const topChunks = rerankedChunks.slice(0, this.retrievalLimit)
 
     const context = this.presentContext(topChunks)
     const systemPrompt = this.buildSystemPrompt()
@@ -190,7 +201,7 @@ abstract class BaseRag {
     return Promise.resolve([query])
   }
 
-  protected presentContext(chunks: Chunk[]): string {
+  protected presentContext(chunks: RetrievedChunk[]): string {
     return chunks.map((chunk, index) => `[${index + 1}] ${chunk.text}`).join('\n\n')
   }
 }

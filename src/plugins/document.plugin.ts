@@ -1,5 +1,5 @@
 import { BaseRag } from '@/plugins/base.plugin'
-import type { Chunk } from '@/models/chunk.model'
+import type { RetrievedChunk } from '@/models/retrieved-chunk.model'
 
 class DocumentRag extends BaseRag {
   protected override buildSystemPrompt(): string {
@@ -9,7 +9,7 @@ class DocumentRag extends BaseRag {
     )
   }
 
-  protected override presentContext(chunks: Chunk[]): string {
+  protected override presentContext(chunks: RetrievedChunk[]): string {
     return chunks.map((chunk, index) => `Source [${index + 1}]: ${chunk.text}`).join('\n\n')
   }
 }
