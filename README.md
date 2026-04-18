@@ -71,7 +71,7 @@ await rag.ingest('The Battle of Hastings took place in 1066. William the Conquer
 // Ask questions — returns answer, sources, and updated history
 const response = await rag.query('Who won the Battle of Hastings?')
 console.log(response.answer)   // "William the Conqueror defeated Harold..."
-console.log(response.sources)  // [{ text: '...', metadata: {} }]
+console.log(response.sources)  // [{ id: 42, score: 0.93, text: '...', metadata: { index: 3 } }]
 
 // Pass history back for multi-turn conversation
 const followUp = await rag.query('What year was that?', response.history)
@@ -171,6 +171,9 @@ const rag = new ConversationalRag({
     candidateLimit: 30,  // pool size before deduplication (default: 20)
   },
 
+  // Optional reranker stage after retrieval and before truncation
+  reranker,
+
   tokenBudget: 12000,  // total token cap for assembled prompt (default: 8000)
 })
 ```
@@ -181,6 +184,7 @@ Model selection belongs to the provider, not the config:
 import { AnthropicProvider } from 'rag-time/providers/anthropic'
 import { GeminiProvider } from 'rag-time/providers/gemini'
 import { OpenAIProvider } from 'rag-time/providers/openai'
+import type { Reranker } from 'rag-time'
 
 const provider = new OpenAIProvider({
   apiKey:         process.env.OPENAI_API_KEY!,
@@ -198,7 +202,13 @@ const gemini = new GeminiProvider({
   chatModel:      'gemini-2.0-flash',         // default: 'gemini-1.5-pro'
   embeddingModel: 'text-embedding-005',       // default: 'text-embedding-004'
 })
+
+const reranker: Reranker = {
+  rerank: async (_query, chunks) => chunks,
+}
 ```
+
+If you provide a `reranker`, it is applied after retrieval deduplication and before source truncation.
 
 ---
 
