@@ -4,6 +4,8 @@ import { EmbeddingManagementService } from '@/services/embedding-management.serv
 import { EmbeddingError } from '@/errors/embedding.error'
 import { PdfParseError } from '@/errors/pdf-parse.error'
 import { hashString } from '@/utils/hashing.util'
+import { FilePathValidator } from '@/validators/file-path.validator'
+import { MetadataValidator } from '@/validators/metadata.validator'
 import type { EmbeddingProvider } from '@/models/embedding-provider.model'
 import type { Metadata } from '@/models/metadata.model'
 import type { EmbeddingResult } from '@/models/embedding-result.model'
@@ -25,6 +27,13 @@ class EmbeddingProcessingService {
   ) {
     this.embeddingManagementService = embeddingManagementService
     this.embeddingProvider = embeddingProvider
+  }
+
+  private serialiseInputForHashing(input: string | string[]): string {
+    return JSON.stringify({
+      inputType: Array.isArray(input) ? 'text-array' : 'text',
+      value: input,
+    })
   }
 
   async createTextEmbedding(input: string | string[]): Promise<TextEmbedding[]> {
@@ -49,7 +58,11 @@ class EmbeddingProcessingService {
   async embedText(text: string | string[], opts?: EmbedOpts): Promise<EmbeddingResult> {
     try {
       const textAsString = Array.isArray(text) ? text.join() : text
-      const hashAsCollectionId = hashString(textAsString)
+      const serialisedText = this.serialiseInputForHashing(text)
+      const validatedMetadata = opts?.metadata
+        ? MetadataValidator.parse(opts.metadata)
+        : undefined
+      const hashAsCollectionId = hashString(serialisedText)
       const embeddingExists = await this.embeddingManagementService.embeddingExists(hashAsCollectionId)
 
       if (!embeddingExists) {
@@ -75,7 +88,7 @@ class EmbeddingProcessingService {
         await this.embeddingManagementService.insertEmbedding(
           hashAsCollectionId,
           textEmbedding,
-          opts?.metadata
+          validatedMetadata
         )
       }
 
@@ -91,12 +104,13 @@ class EmbeddingProcessingService {
   }
 
   async embedPDF(filePath: string, opts?: EmbedOpts): Promise<EmbeddingResult> {
+    const validatedFilePath = FilePathValidator.parse(filePath)
     let buffer: Buffer
 
     try {
-      buffer = await fs.readFile(filePath)
+      buffer = await fs.readFile(validatedFilePath)
     } catch (err) {
-      throw new PdfParseError(`Failed to read PDF file: ${filePath}`, err)
+      throw new PdfParseError(`Failed to read PDF file: ${validatedFilePath}`, err)
     }
 
     try {

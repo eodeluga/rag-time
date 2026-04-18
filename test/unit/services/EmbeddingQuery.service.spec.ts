@@ -56,7 +56,12 @@ describe('EmbeddingQueryService', () => {
       const service = makeService()
       const results = await service.query('test question', 'col-1', 1)
 
-      expect(results).toEqual(['found result'])
+      expect(results).toEqual([{
+        id: 0,
+        metadata: {},
+        score: 0.9,
+        text: 'found result',
+      }])
     })
 
     it('embeds the query string before searching', async () => {
@@ -103,8 +108,8 @@ describe('EmbeddingQueryService', () => {
       const service = makeService()
       const results = await service.queryCollections('q', ['col-a', 'col-b'], 1)
 
-      expect(results).toContain('result-a')
-      expect(results).toContain('result-b')
+      expect(results.map((result) => result.text)).toContain('result-a')
+      expect(results.map((result) => result.text)).toContain('result-b')
     })
 
     it('embeds the query only once regardless of collection count', async () => {

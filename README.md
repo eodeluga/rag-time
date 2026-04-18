@@ -7,7 +7,7 @@ LLM providers and vector stores are swappable interfaces. OpenAI, Anthropic, and
 
 ## Features
 
-- High-level `RagPlugin` API — one call to ingest, one call to query
+- High-level plugin API — one call to ingest, one call to query
 - Built-in conversational history with automatic compaction
 - Provider abstraction — OpenAI, Anthropic, and Gemini supported
 - Vector store abstraction — Qdrant built-in, custom backends easy to add
@@ -54,7 +54,8 @@ The recommended way to use RAGtime is through a plugin. Two are included:
 ### Conversational RAG
 
 ```ts
-import { ConversationalRag, OpenAIProvider, QdrantVectorStore } from 'rag-time'
+import { ConversationalRag, QdrantVectorStore } from 'rag-time'
+import { OpenAIProvider } from 'rag-time/providers/openai'
 
 const provider = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY! })
 
@@ -70,7 +71,7 @@ await rag.ingest('The Battle of Hastings took place in 1066. William the Conquer
 // Ask questions — returns answer, sources, and updated history
 const response = await rag.query('Who won the Battle of Hastings?')
 console.log(response.answer)   // "William the Conqueror defeated Harold..."
-console.log(response.sources)  // [{ text: '...', metadata: {} }]
+console.log(response.sources)  // [{ id: 42, score: 0.93, text: '...', metadata: { index: 3 } }]
 
 // Pass history back for multi-turn conversation
 const followUp = await rag.query('What year was that?', response.history)
@@ -81,7 +82,8 @@ console.log(followUp.answer)   // "...1066..."
 
 ```ts
 import { readFileSync } from 'fs'
-import { DocumentRag, OpenAIProvider, QdrantVectorStore } from 'rag-time'
+import { DocumentRag, QdrantVectorStore } from 'rag-time'
+import { OpenAIProvider } from 'rag-time/providers/openai'
 
 const provider = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY! })
 
@@ -106,12 +108,9 @@ console.log(response.answer)
 Anthropic does not offer an embeddings API, so pair it with OpenAI or Gemini for embeddings:
 
 ```ts
-import {
-  ConversationalRag,
-  AnthropicProvider,
-  OpenAIProvider,
-  QdrantVectorStore,
-} from 'rag-time'
+import { ConversationalRag, QdrantVectorStore } from 'rag-time'
+import { AnthropicProvider } from 'rag-time/providers/anthropic'
+import { OpenAIProvider } from 'rag-time/providers/openai'
 
 const rag = new ConversationalRag({
   chatProvider:      new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! }),
@@ -123,7 +122,8 @@ const rag = new ConversationalRag({
 Gemini handles both chat and embeddings on its own:
 
 ```ts
-import { ConversationalRag, GeminiProvider, QdrantVectorStore } from 'rag-time'
+import { ConversationalRag, QdrantVectorStore } from 'rag-time'
+import { GeminiProvider } from 'rag-time/providers/gemini'
 
 const provider = new GeminiProvider({ apiKey: process.env.GEMINI_API_KEY! })
 
@@ -139,6 +139,14 @@ Install optional provider packages when needed:
 ```bash
 bun add @anthropic-ai/sdk        # for AnthropicProvider
 bun add @google/generative-ai    # for GeminiProvider
+```
+
+Provider imports are exposed via subpaths:
+
+```ts
+import { OpenAIProvider } from 'rag-time/providers/openai'
+import { AnthropicProvider } from 'rag-time/providers/anthropic'
+import { GeminiProvider } from 'rag-time/providers/gemini'
 ```
 
 ---
@@ -163,6 +171,9 @@ const rag = new ConversationalRag({
     candidateLimit: 30,  // pool size before deduplication (default: 20)
   },
 
+  // Optional reranker stage after retrieval and before truncation
+  reranker,
+
   tokenBudget: 12000,  // total token cap for assembled prompt (default: 8000)
 })
 ```
@@ -170,6 +181,11 @@ const rag = new ConversationalRag({
 Model selection belongs to the provider, not the config:
 
 ```ts
+import { AnthropicProvider } from 'rag-time/providers/anthropic'
+import { GeminiProvider } from 'rag-time/providers/gemini'
+import { OpenAIProvider } from 'rag-time/providers/openai'
+import type { Reranker } from 'rag-time'
+
 const provider = new OpenAIProvider({
   apiKey:         process.env.OPENAI_API_KEY!,
   chatModel:      'gpt-4o-mini',              // default: 'gpt-4o'
@@ -186,19 +202,27 @@ const gemini = new GeminiProvider({
   chatModel:      'gemini-2.0-flash',         // default: 'gemini-1.5-pro'
   embeddingModel: 'text-embedding-005',       // default: 'text-embedding-004'
 })
+
+const reranker: Reranker = {
+  rerank: async (_query, chunks) => chunks,
+}
 ```
+
+If you provide a `reranker`, it is applied after retrieval deduplication and before source truncation.
 
 ---
 
 ## Building a Custom Plugin
 
-Extend `RagPlugin` and override any hook. Everything else is inherited:
+Extend `BaseRag` and override any hook. Everything else is inherited:
 
 ```ts
-import { RagPlugin, QdrantVectorStore, AnthropicProvider, OpenAIProvider } from 'rag-time'
-import type { Chunk } from 'rag-time'
+import { BaseRag, QdrantVectorStore } from 'rag-time'
+import { AnthropicProvider } from 'rag-time/providers/anthropic'
+import { OpenAIProvider } from 'rag-time/providers/openai'
+import type { RetrievedChunk } from 'rag-time'
 
-class LegalDocumentRag extends RagPlugin {
+class LegalDocumentRag extends BaseRag {
   protected buildSystemPrompt(): string {
     return (
       'You are a legal document analyst. Answer questions based on the provided clauses. '
@@ -206,7 +230,7 @@ class LegalDocumentRag extends RagPlugin {
     )
   }
 
-  protected presentContext(chunks: Chunk[]): string {
+  protected presentContext(chunks: RetrievedChunk[]): string {
     return chunks
       .map((chunk, index) => `Clause [${index + 1}]:\n${chunk.text}`)
       .join('\n\n')
@@ -290,9 +314,9 @@ import {
   EmbeddingManagementService,
   EmbeddingQueryService,
   TextChunkerService,
-  OpenAIProvider,
   QdrantVectorStore,
 } from 'rag-time'
+import { OpenAIProvider } from 'rag-time/providers/openai'
 
 const provider  = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY! })
 const store     = new QdrantVectorStore()
