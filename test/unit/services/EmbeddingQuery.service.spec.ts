@@ -40,6 +40,12 @@ function makeService() {
   return new EmbeddingQueryService(mgmtService, processingService)
 }
 
+function makeServiceWithConcurrencyLimit(queryCollectionsMaxConcurrency?: number) {
+  const mgmtService = new EmbeddingManagementService(mockVectorStore)
+  const processingService = new EmbeddingProcessingService(mockEmbeddingProvider, mgmtService)
+  return new EmbeddingQueryService(mgmtService, processingService, { queryCollectionsMaxConcurrency })
+}
+
 describe('EmbeddingQueryService', () => {
   beforeEach(() => {
     mockEmbed.mockReset()
@@ -124,6 +130,53 @@ describe('EmbeddingQueryService', () => {
 
       const service = makeService()
       await expect(service.queryCollections('q', ['col-1'])).rejects.toThrow('Embedding is empty')
+    })
+
+    it('limits concurrent collection searches when configured', async () => {
+      let activeSearches = 0
+      let maxConcurrentSearches = 0
+
+      mockStoreSearch.mockImplementation(async (collectionId) => {
+        activeSearches += 1
+        maxConcurrentSearches = Math.max(maxConcurrentSearches, activeSearches)
+
+        await new Promise((resolve) => setTimeout(resolve, 10))
+
+        activeSearches -= 1
+        return [{ id: collectionId, payload: { text: `result-${collectionId}` }, score: 0.9 }]
+      })
+
+      const service = makeServiceWithConcurrencyLimit(1)
+      await service.queryCollections('q', ['col-a', 'col-b', 'col-c'], 1)
+
+      expect(maxConcurrentSearches).toBe(1)
+    })
+
+    it('runs unbounded collection searches by default', async () => {
+      let activeSearches = 0
+      let maxConcurrentSearches = 0
+
+      mockStoreSearch.mockImplementation(async (collectionId) => {
+        activeSearches += 1
+        maxConcurrentSearches = Math.max(maxConcurrentSearches, activeSearches)
+
+        await new Promise((resolve) => setTimeout(resolve, 10))
+
+        activeSearches -= 1
+        return [{ id: collectionId, payload: { text: `result-${collectionId}` }, score: 0.9 }]
+      })
+
+      const service = makeService()
+      await service.queryCollections('q', ['col-a', 'col-b', 'col-c'], 1)
+
+      expect(maxConcurrentSearches).toBeGreaterThan(1)
+    })
+
+    it('throws for invalid query collection concurrency limit', async () => {
+      const service = makeServiceWithConcurrencyLimit(0)
+      await expect(service.queryCollections('q', ['col-a'])).rejects.toThrow(
+        'maxConcurrency must be an integer greater than 0.'
+      )
     })
   })
 })
