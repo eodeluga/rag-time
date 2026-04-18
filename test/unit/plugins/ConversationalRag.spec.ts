@@ -224,6 +224,39 @@ describe('ConversationalRag (RagPlugin)', () => {
       expect(firstSource?.score).toBe(0.77)
     })
 
+    it('round-trips ingest metadata into query sources through vector payloads', async () => {
+      const persistedPoints: VectorPoint[] = []
+      const statefulVectorStore: VectorStore = {
+        exists: async (_collectionId): Promise<boolean> => false,
+        insert: async (collectionId, points): Promise<VectorStoreInsertResult> => {
+          persistedPoints.splice(0, persistedPoints.length, ...points)
+          return { collectionId, status: 'completed' }
+        },
+        search: async (): Promise<VectorSearchResult[]> =>
+          persistedPoints.map((point) => ({
+            id: point.id,
+            payload: point.payload,
+            score: 0.9,
+          })),
+      }
+      const statefulRag = new ConversationalRag({
+        chatProvider: mockChatProvider,
+        embeddingProvider: mockEmbeddingProvider,
+        vectorStore: statefulVectorStore,
+      })
+
+      await statefulRag.ingest('Round-trip metadata text.', {
+        section: 'overview',
+        source: 'policy.pdf',
+      })
+
+      const response = await statefulRag.query('What is in the policy?')
+      const firstSource = response.sources[0]
+
+      expect(firstSource?.metadata['section']).toBe('overview')
+      expect(firstSource?.metadata['source']).toBe('policy.pdf')
+    })
+
     it('deduplicates identical chunks from multiple query variants', async () => {
       mockStoreSearch.mockImplementation(async () => [
         { id: 0, payload: { text: 'duplicate chunk', index: 0 }, score: 0.9 },
