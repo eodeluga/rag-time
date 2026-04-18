@@ -25,13 +25,13 @@ describe('Tests the embedding of text chunks from PDF and the querying and respo
     embeddingProcessingService = new EmbeddingProcessingService(provider, mgmtService)
     embeddingQueryService = new EmbeddingQueryService(mgmtService, embeddingProcessingService)
 
-    const pdfPath = 'test/assets/Sample.pdf';
+    const pdfPath = 'assets/Sample.pdf';
 
     ({ embeddingId } = await embeddingProcessingService.embedPDF(pdfPath, {
       chunkFn: (text) => chunkerService.chunk(text),
     }))
 
-    const pdfs = ['test/assets/Sample.pdf', 'test/assets/Secure Secure Shell.pdf']
+    const pdfs = ['assets/Sample.pdf', 'assets/Secure Secure Shell.pdf']
     const embeddingPromises = await Promise.all(
       pdfs.map(async (pdf) => embeddingProcessingService.embedPDF(pdf, {
         chunkFn: (text) => chunkerService.chunk(text),

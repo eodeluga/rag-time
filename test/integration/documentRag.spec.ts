@@ -22,7 +22,7 @@ describe('DocumentRag — PDF ingest and source-cited query', async function() {
       vectorStore: new QdrantVectorStore(),
     })
 
-    const pdfBuffer = readFileSync('test/assets/Sample.pdf')
+    const pdfBuffer = readFileSync('assets/Sample.pdf')
     const result = await rag.ingest(pdfBuffer)
 
     if (!result.embeddingId) {
