@@ -4,6 +4,7 @@ import { EmbeddingManagementService } from '@/services/embedding-management.serv
 import { EmbeddingQueryService } from '@/services/embedding-query.service'
 import { TextChunkerService } from '@/services/text-chunker.service'
 import { QdrantVectorStore } from '@/stores/qdrant-vector.store'
+import { EmbeddingError } from '@/errors/embedding.error'
 import { IngestInputValidator } from '@/validators/rag-ingest.validator'
 import { QueryInputValidator } from '@/validators/rag-query.validator'
 import type { RagConfig } from '@/models/rag-config.model'
@@ -125,6 +126,11 @@ abstract class BaseRag {
       chunkFn,
       metadata: validatedIngestInput.metadata,
     })
+
+    if (result.embeddingId === null) {
+      throw new EmbeddingError(result.message ?? 'Embedding failed during ingest.')
+    }
+
     this.embeddingId = result.embeddingId
     return result
   }
