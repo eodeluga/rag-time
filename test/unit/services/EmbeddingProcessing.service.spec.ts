@@ -104,6 +104,19 @@ describe('EmbeddingProcessingService', () => {
       expect(result.embeddingId).not.toBeNull()
     })
 
+    it('creates distinct embedding IDs for delimiter-collision text arrays', async () => {
+      const service = makeService()
+      const firstTextArray = ['alpha,beta', 'gamma']
+      const secondTextArray = ['alpha', 'beta,gamma']
+
+      const firstResult = await service.embedText(firstTextArray, { chunkFn })
+      const secondResult = await service.embedText(secondTextArray, { chunkFn })
+
+      expect(firstResult.embeddingId).not.toBeNull()
+      expect(secondResult.embeddingId).not.toBeNull()
+      expect(firstResult.embeddingId).not.toBe(secondResult.embeddingId)
+    })
+
     it('skips chunking and embedding when collection already exists', async () => {
       mockStoreExists.mockImplementation(async () => true)
 
