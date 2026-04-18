@@ -16,7 +16,7 @@ LLM providers and vector stores are swappable interfaces. OpenAI, Anthropic, and
 - Vector store abstraction — Qdrant built-in, custom backends easy to add
 - Embed PDFs and raw text
 - Query single or multiple collections
-- Multi-variant retrieval fusion with near-duplicate collapse
+- Multi-variant retrieval fusion with source-aware near-duplicate collapse
 - Typed error classes for fast, visible failures
 - Full unit test coverage
 
@@ -200,7 +200,11 @@ Model selection belongs to the provider, not the config:
 import { AnthropicProvider } from 'rag-time/providers/anthropic'
 import { GeminiProvider } from 'rag-time/providers/gemini'
 import { OpenAIProvider } from 'rag-time/providers/openai'
-import type { Reranker } from 'rag-time'
+import type {
+  QdrantVectorStoreConfig,
+  RagConfig,
+  Reranker,
+} from 'rag-time'
 
 const provider = new OpenAIProvider({
   apiKey:         process.env.OPENAI_API_KEY!,
@@ -222,6 +226,20 @@ const gemini = new GeminiProvider({
 const reranker: Reranker = {
   rerank: async (_query, chunks) => chunks,
 }
+
+const qdrantConfig: QdrantVectorStoreConfig = {
+  collection: {
+    defaultSegmentNumber: 2,
+    replicationFactor: 2,
+  },
+  url: 'http://qdrant.internal:6333',
+}
+
+const ragConfig: RagConfig = {
+  chatProvider: provider,
+  embeddingProvider: provider,
+  qdrant: qdrantConfig,
+}
 ```
 
 Retrieval pipeline order is:
@@ -229,7 +247,7 @@ Retrieval pipeline order is:
 1. Generate query variants (from `expandQuery`).
 2. Retrieve candidates per variant (`candidateLimit` each).
 3. Merge variants using reciprocal-rank style fusion.
-4. Collapse near-duplicates (case/punctuation/whitespace normalisation).
+4. Collapse near-duplicates using canonical text and source scope.
 5. Apply optional `reranker`.
 6. Truncate to `retrieval.limit`.
 
