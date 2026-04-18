@@ -19,6 +19,12 @@ import type { RetrievedChunk } from '@/models/retrieved-chunk.model'
 import type { TextChunk } from '@/models/text-chunk.model'
 import type { ChatProvider } from '@/models/chat-provider.model'
 
+type RankedChunk = {
+  bestScore: number
+  chunk: RetrievedChunk
+  reciprocalRankScore: number
+}
+
 abstract class BaseRag {
   private candidateLimit: number
   private chatProvider: ChatProvider
@@ -101,19 +107,63 @@ abstract class BaseRag {
     return Math.ceil(text.length / 4)
   }
 
-  private deduplicateChunks(chunks: RetrievedChunk[]): RetrievedChunk[] {
-    const bestChunkByText = new Map<string, RetrievedChunk>()
+  private buildChunkDeduplicationKey(text: string): string {
+    return text
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+  }
 
-    chunks.forEach((chunk) => {
-      const existingChunk = bestChunkByText.get(chunk.text)
+  private mergeAndRankVariantResults(resultsByVariant: RetrievedChunk[][]): RetrievedChunk[] {
+    const reciprocalRankConstant = 60
+    const rankedChunkByKey = new Map<string, RankedChunk>()
 
-      if (!existingChunk || chunk.score > existingChunk.score) {
-        bestChunkByText.set(chunk.text, chunk)
-      }
+    resultsByVariant.forEach((variantResults) => {
+      const sortedVariantResults = [...variantResults]
+        .sort((firstChunk, secondChunk) => secondChunk.score - firstChunk.score)
+
+      sortedVariantResults.forEach((chunk, resultIndex) => {
+        const deduplicationKey = this.buildChunkDeduplicationKey(chunk.text)
+        const reciprocalRank = 1 / (reciprocalRankConstant + resultIndex + 1)
+        const existingRankedChunk = rankedChunkByKey.get(deduplicationKey)
+
+        if (!existingRankedChunk) {
+          rankedChunkByKey.set(deduplicationKey, {
+            bestScore: chunk.score,
+            chunk,
+            reciprocalRankScore: reciprocalRank,
+          })
+          return
+        }
+
+        const bestScore = Math.max(existingRankedChunk.bestScore, chunk.score)
+        const representativeChunk = bestScore === chunk.score
+          ? chunk
+          : existingRankedChunk.chunk
+        const reciprocalRankScore = existingRankedChunk.reciprocalRankScore + reciprocalRank
+
+        rankedChunkByKey.set(deduplicationKey, {
+          bestScore,
+          chunk: representativeChunk,
+          reciprocalRankScore,
+        })
+      })
     })
 
-    return Array.from(bestChunkByText.values())
-      .sort((firstChunk, secondChunk) => secondChunk.score - firstChunk.score)
+    return [...rankedChunkByKey.values()]
+      .sort((firstChunk, secondChunk) => {
+        if (secondChunk.reciprocalRankScore !== firstChunk.reciprocalRankScore) {
+          return secondChunk.reciprocalRankScore - firstChunk.reciprocalRankScore
+        }
+
+        if (secondChunk.bestScore !== firstChunk.bestScore) {
+          return secondChunk.bestScore - firstChunk.bestScore
+        }
+
+        return firstChunk.chunk.text.localeCompare(secondChunk.chunk.text)
+      })
+      .map((rankedChunk) => rankedChunk.chunk)
   }
 
   async ingest(input: Buffer | string, metadata?: Metadata): Promise<EmbeddingResult> {
@@ -158,8 +208,8 @@ abstract class BaseRag {
       )
     )
 
-    const deduplicatedChunks = this.deduplicateChunks(rawResults.flat())
-    const rerankedChunks = await this.reranker.rerank(validatedQueryInput.question, deduplicatedChunks)
+    const mergedAndRankedChunks = this.mergeAndRankVariantResults(rawResults)
+    const rerankedChunks = await this.reranker.rerank(validatedQueryInput.question, mergedAndRankedChunks)
     const topChunks = rerankedChunks.slice(0, this.retrievalLimit)
 
     const context = this.presentContext(topChunks)
