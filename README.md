@@ -1,3 +1,6 @@
+<p align="center">
+  <img src="./assets/RAGtime.webp" alt="next-middy banner" width="500" />
+</p>
 
 # RAGtime
 
