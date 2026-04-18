@@ -77,6 +77,52 @@ describe('QdrantVectorStore', () => {
       expect(config.vectors.distance).toBe('Cosine')
     })
 
+    it('uses default collection tuning when not configured', async () => {
+      let capturedConfig: unknown
+
+      mockCreateCollection.mockImplementation(async (_id, config) => {
+        capturedConfig = config
+        return undefined
+      })
+
+      const store = new QdrantVectorStore()
+      await store.insert('col-1', samplePoints)
+
+      const config = capturedConfig as {
+        optimizers_config: { default_segment_number: number }
+        replication_factor: number
+      }
+
+      expect(config.optimizers_config.default_segment_number).toBe(2)
+      expect(config.replication_factor).toBe(2)
+    })
+
+    it('uses configured collection tuning overrides when provided', async () => {
+      let capturedConfig: unknown
+
+      mockCreateCollection.mockImplementation(async (_id, config) => {
+        capturedConfig = config
+        return undefined
+      })
+
+      const store = new QdrantVectorStore({
+        collection: {
+          defaultSegmentNumber: 4,
+          replicationFactor: 1,
+        },
+      })
+
+      await store.insert('col-1', samplePoints)
+
+      const config = capturedConfig as {
+        optimizers_config: { default_segment_number: number }
+        replication_factor: number
+      }
+
+      expect(config.optimizers_config.default_segment_number).toBe(4)
+      expect(config.replication_factor).toBe(1)
+    })
+
     it('upserts all points and returns collectionId and status', async () => {
       const store = new QdrantVectorStore()
       const result = await store.insert('col-1', samplePoints)
