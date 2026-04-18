@@ -180,4 +180,14 @@ describe('EmbeddingProcessingService', () => {
       expect(capturedPayloads[0]?.['source']).toBe('file.txt')
     })
   })
+
+  describe('embedPDF', () => {
+    it('throws when file path validation fails', async () => {
+      const service = makeService()
+
+      await expect(
+        service.embedPDF('\0invalid.pdf', { chunkFn })
+      ).rejects.toThrow()
+    })
+  })
 })

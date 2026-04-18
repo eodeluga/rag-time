@@ -105,6 +105,14 @@ describe('EmbeddingManagementService', () => {
       expect(capturedPoints[0]?.payload['source']).toBe('doc.pdf')
       expect(capturedPoints[0]?.payload['text']).toBe('first chunk')
     })
+
+    it('throws when metadata attempts to override reserved payload keys', async () => {
+      const service = new EmbeddingManagementService(mockVectorStore)
+
+      await expect(
+        service.insertEmbedding('col-1', sampleEmbeddings, { text: 'override attempt' })
+      ).rejects.toThrow('reserved keys')
+    })
   })
 
   describe('searchByEmbedding', () => {
@@ -135,16 +143,17 @@ describe('EmbeddingManagementService', () => {
       expect(limit).toBe(5)
     })
 
-    it('returns empty string for results with missing text payload', async () => {
+    it('throws when vector payload text is missing', async () => {
       mockSearch.mockImplementation(async () => [
         { id: 0, payload: {}, score: 0.9 },
       ])
 
       const service = new EmbeddingManagementService(mockVectorStore)
       const embedding: TextEmbedding = { index: 0, text: 'q', vector: [0.1] }
-      const results = await service.searchByEmbedding('col-1', { embedding, limit: 1 })
 
-      expect(results[0]).toBe('')
+      await expect(
+        service.searchByEmbedding('col-1', { embedding, limit: 1 })
+      ).rejects.toThrow()
     })
   })
 })
