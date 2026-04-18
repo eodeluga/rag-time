@@ -1,5 +1,6 @@
 import { QdrantClient } from '@qdrant/qdrant-js'
 import { VectorStoreError } from '@/errors/vector-store.error'
+import type { QdrantVectorStoreConfig } from '@/models/qdrant-config.model'
 import type {
   VectorPoint,
   VectorSearchResult,
@@ -7,16 +8,16 @@ import type {
   VectorStoreInsertResult,
 } from '@/models/vector-store.model'
 
-interface QdrantVectorStoreConfig {
-  url?: string
-}
-
 class QdrantVectorStore implements VectorStore {
   private client: QdrantClient
+  private collectionDefaultSegmentNumber: number
+  private collectionReplicationFactor: number
 
   constructor(config: QdrantVectorStoreConfig = {}) {
     const url = config.url ?? process.env['QDRANT_URL'] ?? 'http://localhost:6333'
     this.client = new QdrantClient({ url })
+    this.collectionDefaultSegmentNumber = config.collection?.defaultSegmentNumber ?? 2
+    this.collectionReplicationFactor = config.collection?.replicationFactor ?? 2
   }
 
   async exists(collectionId: string): Promise<boolean> {
@@ -36,9 +37,9 @@ class QdrantVectorStore implements VectorStore {
     try {
       await this.client.createCollection(collectionId, {
         optimizers_config: {
-          default_segment_number: 2,
+          default_segment_number: this.collectionDefaultSegmentNumber,
         },
-        replication_factor: 2,
+        replication_factor: this.collectionReplicationFactor,
         vectors: {
           distance: 'Cosine',
           size: points[0]!.vector.length,

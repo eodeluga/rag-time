@@ -16,6 +16,7 @@ LLM providers and vector stores are swappable interfaces. OpenAI, Anthropic, and
 - Vector store abstraction — Qdrant built-in, custom backends easy to add
 - Embed PDFs and raw text
 - Query single or multiple collections
+- Multi-variant retrieval fusion with near-duplicate collapse
 - Typed error classes for fast, visible failures
 - Full unit test coverage
 
@@ -164,14 +165,26 @@ const rag = new ConversationalRag({
   embeddingProvider: provider,
 
   // Use a custom Qdrant URL instead of localhost:6333
-  qdrant: { url: 'http://qdrant.internal:6333' },
+  qdrant: {
+    collection: {
+      defaultSegmentNumber: 2,  // default: 2
+      replicationFactor: 2,     // default: 2
+    },
+    url: 'http://qdrant.internal:6333',
+  },
 
   // Or inject any VectorStore implementation directly
-  vectorStore: new QdrantVectorStore({ url: 'http://qdrant.internal:6333' }),
+  vectorStore: new QdrantVectorStore({
+    collection: {
+      defaultSegmentNumber: 2,  // default: 2
+      replicationFactor: 2,     // default: 2
+    },
+    url: 'http://qdrant.internal:6333',
+  }),
 
   retrieval: {
     limit:          10,  // chunks returned to the LLM context (default: 5)
-    candidateLimit: 30,  // pool size before deduplication (default: 20)
+    candidateLimit: 30,  // pool size per query variant before fusion (default: 20)
   },
 
   // Optional reranker stage after retrieval and before truncation
@@ -211,7 +224,58 @@ const reranker: Reranker = {
 }
 ```
 
-If you provide a `reranker`, it is applied after retrieval deduplication and before source truncation.
+Retrieval pipeline order is:
+
+1. Generate query variants (from `expandQuery`).
+2. Retrieve candidates per variant (`candidateLimit` each).
+3. Merge variants using reciprocal-rank style fusion.
+4. Collapse near-duplicates (case/punctuation/whitespace normalisation).
+5. Apply optional `reranker`.
+6. Truncate to `retrieval.limit`.
+
+If you provide a `reranker`, it runs after fusion/collapse and before source truncation.
+
+Example optional reranker using simple token overlap:
+
+```ts
+import type { Reranker, RetrievedChunk } from 'rag-time'
+
+const tokenOverlapReranker: Reranker = {
+  rerank: async (query: string, chunks: RetrievedChunk[]): Promise<RetrievedChunk[]> => {
+    const queryTokens = new Set(
+      query
+        .toLowerCase()
+        .split(/\W+/)
+        .filter((token) => token.length > 2)
+    )
+
+    return [...chunks].sort((firstChunk, secondChunk) => {
+      const firstOverlap = firstChunk.text
+        .toLowerCase()
+        .split(/\W+/)
+        .filter((token) => queryTokens.has(token)).length
+
+      const secondOverlap = secondChunk.text
+        .toLowerCase()
+        .split(/\W+/)
+        .filter((token) => queryTokens.has(token)).length
+
+      if (secondOverlap !== firstOverlap) {
+        return secondOverlap - firstOverlap
+      }
+
+      return secondChunk.score - firstChunk.score
+    })
+  },
+}
+
+const rag = new ConversationalRag({
+  chatProvider: provider,
+  embeddingProvider: provider,
+  reranker: tokenOverlapReranker,
+  vectorStore: new QdrantVectorStore(),
+})
+```
 
 ---
 
@@ -348,7 +412,15 @@ const combined = await query.queryCollections(
   [embeddingId!, pdfId!],
   2
 )
+
+// Optional bounded fan-out for multi-collection search (default: unbounded)
+const tunedQuery = new EmbeddingQueryService(mgmt, processor, {
+  queryCollectionsMaxConcurrency: 4,
+})
 ```
+
+Low-level concurrency controls are opt-in and default to unbounded execution. Configure them only when you need to
+reduce API burst pressure, rate-limit errors, or memory spikes.
 
 ---
 

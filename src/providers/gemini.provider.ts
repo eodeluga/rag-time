@@ -52,13 +52,19 @@ class GeminiProvider implements ChatProvider, EmbeddingProvider {
 
   async embed(inputs: string[]): Promise<EmbeddingVector[]> {
     const model = this.client.getGenerativeModel({ model: this.embeddingModel })
+    const response = await model.batchEmbedContents({
+      requests: inputs.map((text) => ({
+        content: {
+          parts: [{ text }],
+          role: 'user',
+        },
+      })),
+    })
 
-    return Promise.all(
-      inputs.map(async (text, index) => {
-        const result = await model.embedContent(text)
-        return { index, vector: result.embedding.values }
-      })
-    )
+    return response.embeddings.map((embedding, index) => ({
+      index,
+      vector: embedding.values,
+    }))
   }
 }
 

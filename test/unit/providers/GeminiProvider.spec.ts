@@ -26,14 +26,14 @@ const mockStartChat = mock(
   })
 )
 
-const mockEmbedContent = mock(
-  async (_text: string): Promise<{ embedding: { values: number[] } }> => ({
-    embedding: { values: [0.1, 0.2, 0.3] },
-  })
-)
+const mockBatchEmbedContents = mock(async (_request: {
+  requests: { content: { parts: { text: string }[], role: string } }[]
+}): Promise<{ embeddings: { values: number[] }[] }> => ({
+  embeddings: [{ values: [0.1, 0.2, 0.3] }],
+}))
 
 const mockGetGenerativeModel = mock((_config: ModelConfig) => ({
-  embedContent: mockEmbedContent,
+  batchEmbedContents: mockBatchEmbedContents,
   startChat: mockStartChat,
 }))
 
@@ -49,18 +49,20 @@ describe('GeminiProvider', () => {
   beforeEach(() => {
     mockSendMessage.mockReset()
     mockStartChat.mockReset()
-    mockEmbedContent.mockReset()
+    mockBatchEmbedContents.mockReset()
     mockGetGenerativeModel.mockReset()
 
     mockSendMessage.mockImplementation(async () => ({
       response: { text: () => 'gemini answer' },
     }))
     mockStartChat.mockImplementation((_opts) => ({ sendMessage: mockSendMessage }))
-    mockEmbedContent.mockImplementation(async () => ({
-      embedding: { values: [0.1, 0.2, 0.3] },
+    mockBatchEmbedContents.mockImplementation(async (request) => ({
+      embeddings: request.requests.map((_request, index) => ({
+        values: [index + 0.1, index + 0.2, index + 0.3],
+      })),
     }))
     mockGetGenerativeModel.mockImplementation((_config) => ({
-      embedContent: mockEmbedContent,
+      batchEmbedContents: mockBatchEmbedContents,
       startChat: mockStartChat,
     }))
   })
@@ -118,8 +120,10 @@ describe('GeminiProvider', () => {
 
   describe('embed', () => {
     it('returns an EmbeddingVector for each input', async () => {
-      mockEmbedContent.mockImplementation(async () => ({
-        embedding: { values: [0.1, 0.2] },
+      mockBatchEmbedContents.mockImplementation(async (request) => ({
+        embeddings: request.requests.map((_request, index) => ({
+          values: [index + 0.1, index + 0.2],
+        })),
       }))
 
       const provider = new GeminiProvider({ apiKey: 'key' })
@@ -139,11 +143,23 @@ describe('GeminiProvider', () => {
       expect(modelConfig.model).toBe('text-embedding-005')
     })
 
-    it('calls embedContent for each input string', async () => {
+    it('calls batchEmbedContents once for all inputs', async () => {
       const provider = new GeminiProvider({ apiKey: 'key' })
       await provider.embed(['a', 'b', 'c'])
 
-      expect(mockEmbedContent.mock.calls).toHaveLength(3)
+      expect(mockBatchEmbedContents.mock.calls).toHaveLength(1)
+    })
+
+    it('sends one batch request containing each input text', async () => {
+      const provider = new GeminiProvider({ apiKey: 'key' })
+      await provider.embed(['first', 'second'])
+
+      const request = mockBatchEmbedContents.mock.calls[0]![0]
+
+      expect(request.requests[0]?.content.parts[0]?.text).toBe('first')
+      expect(request.requests[0]?.content.role).toBe('user')
+      expect(request.requests[1]?.content.parts[0]?.text).toBe('second')
+      expect(request.requests[1]?.content.role).toBe('user')
     })
   })
 })

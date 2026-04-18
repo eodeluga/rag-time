@@ -55,6 +55,21 @@ function makeRag(configOverrides?: Partial<RagConfig>) {
   })
 }
 
+class MultiVariantConversationalRag extends ConversationalRag {
+  protected override expandQuery(query: string): Promise<string[]> {
+    return Promise.resolve([`${query} variant alpha`, `${query} variant beta`])
+  }
+}
+
+function makeMultiVariantRag(configOverrides?: Partial<RagConfig>) {
+  return new MultiVariantConversationalRag({
+    chatProvider: mockChatProvider,
+    embeddingProvider: mockEmbeddingProvider,
+    reranker: configOverrides?.reranker,
+    vectorStore: mockVectorStore,
+  })
+}
+
 describe('ConversationalRag (RagPlugin)', () => {
   describe('ingest', () => {
     beforeEach(() => {
@@ -220,6 +235,63 @@ describe('ConversationalRag (RagPlugin)', () => {
       const texts = response.sources.map((source) => source.text)
       const uniqueTexts = [...new Set(texts)]
       expect(texts).toHaveLength(uniqueTexts.length)
+    })
+
+    it('prioritises chunks that rank strongly across query variants', async () => {
+      mockEmbed.mockImplementation(async (inputs) =>
+        inputs.map((input, index) => {
+          if (input.includes('variant alpha')) {
+            return { index, vector: [1] }
+          }
+
+          if (input.includes('variant beta')) {
+            return { index, vector: [2] }
+          }
+
+          return { index, vector: [0.1 * (index + 1)] }
+        })
+      )
+
+      mockStoreSearch.mockImplementation(async (_id, vector) => {
+        if (vector[0] === 1) {
+          return [
+            { id: 10, payload: { text: 'single variant winner' }, score: 0.97 },
+            { id: 11, payload: { text: 'consensus result' }, score: 0.8 },
+          ]
+        }
+
+        if (vector[0] === 2) {
+          return [
+            { id: 12, payload: { text: 'consensus result' }, score: 0.81 },
+            { id: 13, payload: { text: 'secondary result' }, score: 0.79 },
+          ]
+        }
+
+        return [{ id: 99, payload: { text: 'fallback result' }, score: 0.5 }]
+      })
+
+      const multiVariantRag = makeMultiVariantRag()
+
+      await multiVariantRag.ingest('Context text for fusion test.')
+      const response = await multiVariantRag.query('Find the best grounded source')
+
+      expect(response.sources[0]?.text).toBe('consensus result')
+    })
+
+    it('collapses near-duplicate chunks with punctuation-only differences', async () => {
+      mockStoreSearch.mockImplementation(async () => [
+        { id: 1, payload: { text: 'Payment is due within 30 days.', index: 0 }, score: 0.93 },
+        { id: 2, payload: { text: 'Payment is due within 30 days !', index: 1 }, score: 0.92 },
+        { id: 3, payload: { text: 'Termination requires 60 days notice.', index: 2 }, score: 0.8 },
+      ])
+
+      const response = await rag.query('When is payment due?')
+      const paymentDueSources = response.sources.filter((source) =>
+        source.text.toLowerCase().includes('payment is due within 30 days')
+      )
+
+      expect(paymentDueSources).toHaveLength(1)
+      expect(paymentDueSources[0]?.score).toBe(0.93)
     })
 
     it('applies an injected reranker before truncating sources', async () => {
