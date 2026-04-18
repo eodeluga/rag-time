@@ -1,3 +1,5 @@
+import { EmbeddingMetadataValidator } from '@/validators/metadata.validator'
+import { VectorSearchResultValidator } from '@/validators/vector-search-result.validator'
 import type { VectorStore } from '@/models/vector-store.model'
 import type { Metadata } from '@/models/metadata.model'
 import type { TextEmbedding } from '@/models/text-embedding.model'
@@ -19,9 +21,12 @@ class EmbeddingManagementService {
     textEmbeddingArr: TextEmbedding[],
     metadata?: Metadata
   ): Promise<EmbeddingInsertResult> {
+    const validatedMetadata = metadata
+      ? EmbeddingMetadataValidator.parse(metadata)
+      : undefined
     const points = textEmbeddingArr.map((embedding) => ({
       id: embedding.index,
-      payload: { index: embedding.index, text: embedding.text, ...(metadata ?? {}) },
+      payload: { index: embedding.index, text: embedding.text, ...(validatedMetadata ?? {}) },
       vector: embedding.vector,
     }))
 
@@ -37,13 +42,14 @@ class EmbeddingManagementService {
     collectionId: string,
     opts: { embedding: TextEmbedding; limit: number }
   ): Promise<string[]> {
-    const results = await this.vectorStore.search(
+    const rawResults = await this.vectorStore.search(
       collectionId,
       opts.embedding.vector,
       opts.limit
     )
+    const validatedResults = rawResults.map((result) => VectorSearchResultValidator.parse(result))
 
-    return results.map((result) => (result.payload['text'] as string) ?? '')
+    return validatedResults.map((result) => result.payload.text)
   }
 }
 
