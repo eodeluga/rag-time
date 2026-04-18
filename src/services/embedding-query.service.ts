@@ -1,6 +1,11 @@
 import { EmbeddingManagementService } from '@/services/embedding-management.service'
 import { EmbeddingProcessingService } from '@/services/embedding-processing.service'
+import { runWithOptionalConcurrencyLimit } from '@/utils/concurrency.util'
 import type { RetrievedChunk } from '@/models/retrieved-chunk.model'
+
+type EmbeddingQueryServiceConfig = {
+  queryCollectionsMaxConcurrency?: number
+}
 
 /**
 * Service for querying embeddings within collections and across multiple collections.
@@ -13,6 +18,7 @@ import type { RetrievedChunk } from '@/models/retrieved-chunk.model'
 export class EmbeddingQueryService {
   private embeddingManagementService: EmbeddingManagementService
   private embeddingProcessingService: EmbeddingProcessingService
+  private queryCollectionsMaxConcurrency: number | undefined
   
   /**
   * Creates an instance of EmbeddingQueryService.
@@ -22,10 +28,12 @@ export class EmbeddingQueryService {
   */
   constructor(
     embeddingManagementService: EmbeddingManagementService,
-    embeddingProcessingService: EmbeddingProcessingService
+    embeddingProcessingService: EmbeddingProcessingService,
+    config?: EmbeddingQueryServiceConfig
   ) {
     this.embeddingManagementService = embeddingManagementService
     this.embeddingProcessingService = embeddingProcessingService
+    this.queryCollectionsMaxConcurrency = config?.queryCollectionsMaxConcurrency
   }
   
   /**
@@ -64,14 +72,16 @@ export class EmbeddingQueryService {
       throw new Error('Embedding is empty')
     }
     
-    const searchPromises = embeddingIds.map((embeddingId) =>
-      this.embeddingManagementService.searchByEmbedding(embeddingId, {
-        embedding: queryEmbedding,
-        limit,
-      })
+    const results = await runWithOptionalConcurrencyLimit(
+      embeddingIds,
+      async (embeddingId): Promise<RetrievedChunk[]> =>
+        this.embeddingManagementService.searchByEmbedding(embeddingId, {
+          embedding: queryEmbedding,
+          limit,
+        }),
+      this.queryCollectionsMaxConcurrency
     )
-    
-    const results = await Promise.all(searchPromises)
+
     return results.flatMap((resultSet) => resultSet)
   }
 }
