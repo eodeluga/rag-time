@@ -6,13 +6,6 @@ import type { TextChunk } from '@/models/text-chunk.model'
 class TextChunkerService {
   private chatProvider: ChatProvider
 
-  private normaliseText = (text: string) =>
-    text
-      .toLowerCase()
-      .replace(/[^\w\s]/g, '')
-      .replace(/\s+/g, ' ')
-      .trim()
-
   constructor(chatProvider: ChatProvider) {
     this.chatProvider = chatProvider
   }
@@ -47,8 +40,8 @@ class TextChunkerService {
     const validated = TextChunkerValidator.parse(parsed)
 
     return validated.chunks.map((chunk) => ({
-      summary: this.normaliseText(chunk.summary),
-      text: this.normaliseText(chunk.text),
+      summary: chunk.summary,
+      text: chunk.text,
     }))
   }
 }

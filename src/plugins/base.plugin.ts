@@ -8,6 +8,7 @@ import { QdrantVectorStore } from '@/stores/qdrant-vector.store'
 import { EmbeddingError } from '@/errors/embedding.error'
 import { IngestInputValidator } from '@/validators/rag-ingest.validator'
 import { QueryInputValidator } from '@/validators/rag-query.validator'
+import { hashString } from '@/utils/hashing.util'
 import type { RagConfig } from '@/models/rag-config.model'
 import type { RagResponse } from '@/models/rag-response.model'
 import type { Chunk } from '@/models/chunk.model'
@@ -107,12 +108,29 @@ abstract class BaseRag {
     return Math.ceil(text.length / 4)
   }
 
-  private buildChunkDeduplicationKey(text: string): string {
-    return text
+  private buildChunkDeduplicationKey(chunk: RetrievedChunk): string {
+    const sourceScope = this.resolveChunkSourceScope(chunk.metadata)
+    const canonicalText = chunk.text
       .toLowerCase()
       .replace(/[^a-z0-9\s]/g, ' ')
       .replace(/\s+/g, ' ')
       .trim()
+
+    return hashString(JSON.stringify({
+      sourceScope,
+      text: canonicalText,
+    }))
+  }
+
+  private resolveChunkSourceScope(metadata: Record<string, unknown>): string {
+    const sourceScopeKeys = ['source', 'documentId', 'uri', 'path', 'fileName']
+    const sourceScopeValue = sourceScopeKeys
+      .map((sourceScopeKey) => metadata[sourceScopeKey])
+      .find((value) => typeof value === 'string')
+
+    return typeof sourceScopeValue === 'string'
+      ? sourceScopeValue
+      : '__global__'
   }
 
   private mergeAndRankVariantResults(resultsByVariant: RetrievedChunk[][]): RetrievedChunk[] {
@@ -124,7 +142,7 @@ abstract class BaseRag {
         .sort((firstChunk, secondChunk) => secondChunk.score - firstChunk.score)
 
       sortedVariantResults.forEach((chunk, resultIndex) => {
-        const deduplicationKey = this.buildChunkDeduplicationKey(chunk.text)
+        const deduplicationKey = this.buildChunkDeduplicationKey(chunk)
         const reciprocalRank = 1 / (reciprocalRankConstant + resultIndex + 1)
         const existingRankedChunk = rankedChunkByKey.get(deduplicationKey)
 
