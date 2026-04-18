@@ -89,15 +89,13 @@ describe('ConversationalRag (RagPlugin)', () => {
       expect(mockStoreInsert.mock.calls).toHaveLength(0)
     })
 
-    it('returns null embeddingId when embedding fails', async () => {
+    it('throws immediately when embedding fails during ingest', async () => {
       mockEmbed.mockImplementation(async () => {
         throw new Error('provider down')
       })
 
       const rag = makeRag()
-      const result = await rag.ingest('text')
-
-      expect(result.embeddingId).toBeNull()
+      await expect(rag.ingest('text')).rejects.toThrow('provider down')
     })
   })
 
