@@ -2,8 +2,11 @@ import { describe, expect, it, mock, beforeAll, beforeEach } from 'bun:test'
 import { ConversationalRag } from '@/plugins/conversational.plugin'
 import type { ChatProvider, CompletionOptions } from '@/models/chat-provider.model'
 import type { EmbeddingProvider, EmbeddingVector } from '@/models/embedding-provider.model'
+import type { RetrievedChunk } from '@/models/retrieved-chunk.model'
+import type { Reranker } from '@/models/reranker.model'
 import type { VectorStore, VectorPoint, VectorSearchResult, VectorStoreInsertResult } from '@/models/vector-store.model'
 import type { Message } from '@/models/message.model'
+import type { RagConfig } from '@/models/rag-config.model'
 
 const chunkJson = JSON.stringify({
   chunks: [{ text: 'Historical fact', summary: 'history' }],
@@ -43,10 +46,11 @@ const mockVectorStore: VectorStore = {
   search: mockStoreSearch,
 }
 
-function makeRag() {
+function makeRag(configOverrides?: Partial<RagConfig>) {
   return new ConversationalRag({
     chatProvider: mockChatProvider,
     embeddingProvider: mockEmbeddingProvider,
+    reranker: configOverrides?.reranker,
     vectorStore: mockVectorStore,
   })
 }
@@ -187,8 +191,22 @@ describe('ConversationalRag (RagPlugin)', () => {
       const response = await rag.query('Any question?')
 
       expect(response.sources.length).toBeGreaterThan(0)
+      expect(response.sources[0]).toHaveProperty('id')
+      expect(response.sources[0]).toHaveProperty('score')
       expect(response.sources[0]).toHaveProperty('text')
       expect(response.sources[0]).toHaveProperty('metadata')
+    })
+
+    it('preserves vector metadata and score in response sources', async () => {
+      mockStoreSearch.mockImplementation(async () => [
+        { id: 0, payload: { source: 'test-doc', text: 'metadata chunk' }, score: 0.77 },
+      ])
+
+      const response = await rag.query('Any question?')
+      const firstSource = response.sources[0]
+
+      expect(firstSource?.metadata['source']).toBe('test-doc')
+      expect(firstSource?.score).toBe(0.77)
     })
 
     it('deduplicates identical chunks from multiple query variants', async () => {
@@ -204,5 +222,24 @@ describe('ConversationalRag (RagPlugin)', () => {
       expect(texts).toHaveLength(uniqueTexts.length)
     })
 
+    it('applies an injected reranker before truncating sources', async () => {
+      mockStoreSearch.mockImplementation(async () => [
+        { id: 0, payload: { text: 'low score text' }, score: 0.1 },
+        { id: 1, payload: { text: 'high score text' }, score: 0.9 },
+      ])
+
+      const rerank = mock(
+        async (_query: string, chunks: RetrievedChunk[]): Promise<RetrievedChunk[]> =>
+          [chunks[1]!, chunks[0]!]
+      )
+      const reranker: Reranker = { rerank }
+      const rerankedRag = makeRag({ reranker })
+
+      await rerankedRag.ingest('Context text for rerank test.')
+      const response = await rerankedRag.query('Sort chunks by reranker preference')
+
+      expect(rerank.mock.calls).toHaveLength(1)
+      expect(response.sources[0]?.text).toBe('low score text')
+    })
   })
 })

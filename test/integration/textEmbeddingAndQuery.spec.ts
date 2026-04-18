@@ -87,13 +87,13 @@ describe('Tests the embedding of text chunks from text array and querying and re
 
   it(`should provide text that contains answer to: ${firstQuery}`, async () => {
     const results = await embeddingQueryService.query(firstQuery, embeddingId!)
-    expect(results.some((result) => result.includes('1991'))).toBeTrue()
+    expect(results.some((result) => result.text.includes('1991'))).toBeTrue()
     console.log(results)
   })
 
   it(`should provide text that contains answer to: ${secondQuery}`, async () => {
     const results = await embeddingQueryService.query(secondQuery, embeddingId!)
-    expect(results.some((result) => result.includes('brother'))).toBeTrue()
+    expect(results.some((result) => result.text.includes('brother'))).toBeTrue()
     console.log(results)
   })
 })

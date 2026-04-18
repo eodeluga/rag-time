@@ -50,20 +50,21 @@ describe('Tests the embedding of text chunks from PDF and the querying and respo
   it('should provide text based on query: \'What year did I get the Amiga 500?\'', async () => {
     const query = 'What year did I get the Amiga 500?'
     const results = await embeddingQueryService.query(query, embeddingId!)
-    expect(results.some((result) => result.includes('1991'))).toBeTrue()
+    expect(results.some((result) => result.text.includes('1991'))).toBeTrue()
     console.log(results)
   })
 
   it('should provide text based on query: \'Who made horse racing game?\'', async () => {
     const query = 'Who made horse racing game?'
     const results = await embeddingQueryService.query(query, embeddingId!)
-    expect(results.some((result) => result.includes('brother'))).toBeTrue()
+    expect(results.some((result) => result.text.includes('brother'))).toBeTrue()
     console.log(results)
   })
 
   it('should provide text from multiple documents', async () => {
     const query = 'What is the name of the GPUs I used and what are ways to do key exchange?'
     const results = await embeddingQueryService.queryCollections(query, embeddingIds, 1)
-    expect(results.join()).toSatisfy((str: string) => str.includes('voodoo') && str.includes('ssh'))
+    const resultText = results.map((result) => result.text).join()
+    expect(resultText).toSatisfy((text) => text.includes('voodoo') && text.includes('ssh'))
   })
 })

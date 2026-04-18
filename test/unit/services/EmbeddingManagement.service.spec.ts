@@ -116,17 +116,30 @@ describe('EmbeddingManagementService', () => {
   })
 
   describe('searchByEmbedding', () => {
-    it('returns text strings extracted from payload', async () => {
+    it('returns structured retrieved chunks with metadata and score', async () => {
       mockSearch.mockImplementation(async () => [
-        { id: 0, payload: { text: 'first chunk text', index: 0 }, score: 0.9 },
-        { id: 1, payload: { text: 'second chunk text', index: 1 }, score: 0.7 },
+        { id: 0, payload: { source: 'doc-a', text: 'first chunk text' }, score: 0.9 },
+        { id: 1, payload: { source: 'doc-b', text: 'second chunk text' }, score: 0.7 },
       ])
 
       const service = new EmbeddingManagementService(mockVectorStore)
       const embedding: TextEmbedding = { index: 0, text: 'query', vector: [0.1, 0.2] }
       const results = await service.searchByEmbedding('col-1', { embedding, limit: 2 })
 
-      expect(results).toEqual(['first chunk text', 'second chunk text'])
+      expect(results).toEqual([
+        {
+          id: 0,
+          metadata: { source: 'doc-a' },
+          score: 0.9,
+          text: 'first chunk text',
+        },
+        {
+          id: 1,
+          metadata: { source: 'doc-b' },
+          score: 0.7,
+          text: 'second chunk text',
+        },
+      ])
     })
 
     it('passes the query vector and limit to vectorStore.search', async () => {
