@@ -400,7 +400,15 @@ const combined = await query.queryCollections(
   [embeddingId!, pdfId!],
   2
 )
+
+// Optional bounded fan-out for multi-collection search (default: unbounded)
+const tunedQuery = new EmbeddingQueryService(mgmt, processor, {
+  queryCollectionsMaxConcurrency: 4,
+})
 ```
+
+Low-level concurrency controls are opt-in and default to unbounded execution. Configure them only when you need to
+reduce API burst pressure, rate-limit errors, or memory spikes.
 
 ---
 
