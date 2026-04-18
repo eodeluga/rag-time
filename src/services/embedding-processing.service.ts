@@ -27,6 +27,13 @@ class EmbeddingProcessingService {
     this.embeddingProvider = embeddingProvider
   }
 
+  private serialiseInputForHashing(input: string | string[]): string {
+    return JSON.stringify({
+      inputType: Array.isArray(input) ? 'text-array' : 'text',
+      value: input,
+    })
+  }
+
   async createTextEmbedding(input: string | string[]): Promise<TextEmbedding[]> {
     const inputs = Array.isArray(input) ? input : [input]
     const vectors = await this.embeddingProvider.embed(inputs)
@@ -49,7 +56,8 @@ class EmbeddingProcessingService {
   async embedText(text: string | string[], opts?: EmbedOpts): Promise<EmbeddingResult> {
     try {
       const textAsString = Array.isArray(text) ? text.join() : text
-      const hashAsCollectionId = hashString(textAsString)
+      const serialisedText = this.serialiseInputForHashing(text)
+      const hashAsCollectionId = hashString(serialisedText)
       const embeddingExists = await this.embeddingManagementService.embeddingExists(hashAsCollectionId)
 
       if (!embeddingExists) {
