@@ -44,7 +44,7 @@ abstract class BaseRag {
     this.reranker = config.reranker ?? new NoOpRerankerService()
     this.tokenBudget = config.tokenBudget ?? 8000
 
-    const vectorStore = config.vectorStore ?? new QdrantVectorStore({ url: config.qdrant?.url })
+    const vectorStore = config.vectorStore ?? new QdrantVectorStore(config.qdrant)
     const embeddingManagementService = new EmbeddingManagementService(vectorStore)
 
     this.textChunkerService = new TextChunkerService(config.chatProvider)
