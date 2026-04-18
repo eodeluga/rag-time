@@ -24,16 +24,16 @@ describe('TextChunkerService', () => {
     mockComplete.mockImplementation(async () => validChunksJson)
   })
 
-  it('returns normalised TextChunk array on valid response', async () => {
+  it('returns TextChunk array on valid response', async () => {
     const service = new TextChunkerService(mockProvider)
     const chunks = await service.chunk('some text')
 
     expect(chunks).toHaveLength(2)
-    expect(chunks[0]?.text).toBe('hello world')
-    expect(chunks[0]?.summary).toBe('greeting')
+    expect(chunks[0]?.text).toBe('Hello World')
+    expect(chunks[0]?.summary).toBe('Greeting')
   })
 
-  it('normalises text to lowercase with punctuation stripped', async () => {
+  it('preserves original punctuation and casing in chunk output', async () => {
     mockComplete.mockImplementation(async () =>
       JSON.stringify({
         chunks: [{ text: 'Hello, World!', summary: 'Key: Word.' }],
@@ -43,8 +43,8 @@ describe('TextChunkerService', () => {
     const service = new TextChunkerService(mockProvider)
     const chunks = await service.chunk('some text')
 
-    expect(chunks[0]?.text).toBe('hello world')
-    expect(chunks[0]?.summary).toBe('key word')
+    expect(chunks[0]?.text).toBe('Hello, World!')
+    expect(chunks[0]?.summary).toBe('Key: Word.')
   })
 
   it('passes jsonMode and temperature options to provider', async () => {
