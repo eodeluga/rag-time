@@ -165,10 +165,22 @@ const rag = new ConversationalRag({
   embeddingProvider: provider,
 
   // Use a custom Qdrant URL instead of localhost:6333
-  qdrant: { url: 'http://qdrant.internal:6333' },
+  qdrant: {
+    collection: {
+      defaultSegmentNumber: 2,  // default: 2
+      replicationFactor: 2,     // default: 2
+    },
+    url: 'http://qdrant.internal:6333',
+  },
 
   // Or inject any VectorStore implementation directly
-  vectorStore: new QdrantVectorStore({ url: 'http://qdrant.internal:6333' }),
+  vectorStore: new QdrantVectorStore({
+    collection: {
+      defaultSegmentNumber: 2,  // default: 2
+      replicationFactor: 2,     // default: 2
+    },
+    url: 'http://qdrant.internal:6333',
+  }),
 
   retrieval: {
     limit:          10,  // chunks returned to the LLM context (default: 5)

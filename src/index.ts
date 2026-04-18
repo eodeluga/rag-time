@@ -25,6 +25,7 @@ export type { EmbeddingInsertResult } from '@/models/embedding-insert-result.mod
 export type { EmbeddingResult } from '@/models/embedding-result.model'
 export type { Message } from '@/models/message.model'
 export type { Metadata } from '@/models/metadata.model'
+export type { QdrantCollectionConfig, QdrantVectorStoreConfig } from '@/models/qdrant-config.model'
 export type { RagConfig } from '@/models/rag-config.model'
 export type { RagResponse } from '@/models/rag-response.model'
 export type { Reranker } from '@/models/reranker.model'
