@@ -220,7 +220,7 @@ Extend `BaseRag` and override any hook. Everything else is inherited:
 import { BaseRag, QdrantVectorStore } from 'rag-time'
 import { AnthropicProvider } from 'rag-time/providers/anthropic'
 import { OpenAIProvider } from 'rag-time/providers/openai'
-import type { Chunk } from 'rag-time'
+import type { RetrievedChunk } from 'rag-time'
 
 class LegalDocumentRag extends BaseRag {
   protected buildSystemPrompt(): string {
@@ -230,7 +230,7 @@ class LegalDocumentRag extends BaseRag {
     )
   }
 
-  protected presentContext(chunks: Chunk[]): string {
+  protected presentContext(chunks: RetrievedChunk[]): string {
     return chunks
       .map((chunk, index) => `Clause [${index + 1}]:\n${chunk.text}`)
       .join('\n\n')
