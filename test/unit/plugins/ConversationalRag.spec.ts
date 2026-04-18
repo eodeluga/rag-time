@@ -294,6 +294,23 @@ describe('ConversationalRag (RagPlugin)', () => {
       expect(paymentDueSources[0]?.score).toBe(0.93)
     })
 
+    it('keeps same text from different sources as separate chunks', async () => {
+      mockStoreSearch.mockImplementation(async () => [
+        { id: 1, payload: { source: 'doc-a', text: 'Shared clause text.' }, score: 0.93 },
+        { id: 2, payload: { source: 'doc-b', text: 'Shared clause text.' }, score: 0.92 },
+      ])
+
+      const response = await rag.query('Show shared clauses')
+      const sharedClauseSources = response.sources
+        .filter((source) => source.text === 'Shared clause text.')
+      const sourceIds = sharedClauseSources
+        .map((source) => source.metadata['source'])
+        .sort()
+
+      expect(sharedClauseSources).toHaveLength(2)
+      expect(sourceIds).toEqual(['doc-a', 'doc-b'])
+    })
+
     it('applies an injected reranker before truncating sources', async () => {
       mockStoreSearch.mockImplementation(async () => [
         { id: 0, payload: { text: 'low score text' }, score: 0.1 },
