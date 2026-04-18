@@ -5,10 +5,6 @@ export { DocumentRag } from '@/plugins/document.plugin'
 export type { ChatProvider, CompletionOptions } from '@/models/chat-provider.model'
 export type { EmbeddingProvider, EmbeddingVector } from '@/models/embedding-provider.model'
 
-export { AnthropicProvider } from '@/providers/anthropic.provider'
-export { GeminiProvider } from '@/providers/gemini.provider'
-export { OpenAIProvider } from '@/providers/open-ai.provider'
-
 export type {
   VectorPoint,
   VectorSearchResult,
