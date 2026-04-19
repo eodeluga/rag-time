@@ -348,6 +348,7 @@ Implement three methods and pass the store via `RagConfig.vectorStore`:
 
 ```ts
 import type {
+  RetrievalSearchOptions,
   VectorStore,
   VectorPoint,
   VectorSearchResult,
@@ -373,9 +374,11 @@ class PineconeVectorStore implements VectorStore {
   async search(
     collectionId: string,
     queryVector: number[],
-    limit: number
+    options: RetrievalSearchOptions
   ): Promise<VectorSearchResult[]> {
     // query Pinecone and map results to VectorSearchResult[]
+    // options.limit — number of results to return
+    // options.filter — optional generic filter (translate to Pinecone metadata filter)
     return []
   }
 }
@@ -421,14 +424,14 @@ const { embeddingId: pdfId } = await processor.embedPDF('path/to/file.pdf', {
   chunkFn: (text) => chunker.chunk(text),
 })
 
-// Query a collection
+// Query a collection — retrieval defaults to { limit: 1, filter: undefined }
 const results = await query.query('What year did I get the Amiga 500?', embeddingId!)
 
-// Query multiple collections
+// Query multiple collections with explicit retrieval options
 const combined = await query.queryCollections(
   'What GPUs did I use and how is key exchange done?',
   [embeddingId!, pdfId!],
-  2
+  { filter: undefined, limit: 2 }
 )
 
 // Optional bounded fan-out for multi-collection search (default: unbounded)
@@ -439,6 +442,97 @@ const tunedQuery = new EmbeddingQueryService(mgmt, processor, {
 
 Low-level concurrency controls are opt-in and default to unbounded execution. Configure them only when you need to
 reduce API burst pressure, rate-limit errors, or memory spikes.
+
+---
+
+## Low-level retrieval customisation
+
+`EmbeddingQueryService.query` and `EmbeddingQueryService.queryCollections` accept an optional `RetrievalSearchOptions` argument that controls how results are fetched from the vector store.
+
+```ts
+import type { RetrievalSearchOptions } from 'rag-time'
+
+const retrieval: RetrievalSearchOptions = {
+  limit: 5,
+  filter: {
+    field: 'source',
+    operator: 'eq',
+    value: 'legal-brief.pdf',
+  },
+}
+
+const results = await query.query('What are the indemnity clauses?', embeddingId!, retrieval)
+```
+
+### Generic filter format
+
+Filters use a portable AST that is independent of any specific vector store. The filter is translated into the store's native format at the adapter boundary.
+
+**Scalar operators** — compare a single field against a primitive value:
+
+| Operator | Meaning |
+|---|---|
+| `eq` | Equal |
+| `ne` | Not equal |
+| `gt` | Greater than |
+| `gte` | Greater than or equal |
+| `lt` | Less than |
+| `lte` | Less than or equal |
+
+```ts
+{ field: 'score', operator: 'gte', value: 0.8 }
+```
+
+**Inclusion operator** — match any of a list of values:
+
+```ts
+{ field: 'source', operator: 'in', values: ['brief.pdf', 'contract.pdf'] }
+```
+
+**Logical operators** — compose conditions:
+
+```ts
+// and: all conditions must match
+{
+  operator: 'and',
+  conditions: [
+    { field: 'source', operator: 'eq', value: 'brief.pdf' },
+    { field: 'rank', operator: 'lt', value: 10 },
+  ],
+}
+
+// or: at least one condition must match
+{
+  operator: 'or',
+  conditions: [
+    { field: 'source', operator: 'eq', value: 'brief.pdf' },
+    { field: 'source', operator: 'eq', value: 'contract.pdf' },
+  ],
+}
+
+// not: condition must not match
+{
+  operator: 'not',
+  condition: { field: 'category', operator: 'eq', value: 'archived' },
+}
+```
+
+Logical operators nest arbitrarily, so complex compound predicates are supported.
+
+### Portability
+
+The generic filter contract is portable across any `VectorStore` implementation. Filters are expressed in store-agnostic terms — translation to the provider's native format happens inside the adapter. Provider-specific raw filter objects are intentionally unavailable in this milestone.
+
+### Policy boundary
+
+Domain semantics — deciding which filters to apply, when, and based on what — belong to the application or plugin layer, not to the core library. The core exposes the mechanism; the caller owns the policy.
+
+### Error classes
+
+| Class | Code | When thrown |
+|---|---|---|
+| `InvalidVectorFilterError` | `INVALID_VECTOR_FILTER` | Filter payload fails structural validation |
+| `UnsupportedVectorFilterOperatorError` | `UNSUPPORTED_VECTOR_FILTER_OPERATOR` | A valid generic operator cannot be executed by the current store |
 
 ---
 
