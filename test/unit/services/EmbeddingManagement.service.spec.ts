@@ -1,6 +1,7 @@
 import { describe, expect, it, mock, beforeEach } from 'bun:test'
 import { EmbeddingManagementService } from '@/services/embedding-management.service'
 import type { VectorStore, VectorPoint, VectorSearchResult, VectorStoreInsertResult } from '@/models/vector-store.model'
+import type { RetrievalSearchOptions } from '@/models/vector-filter.model'
 import type { TextEmbedding } from '@/models/text-embedding.model'
 
 const mockExists = mock(async (_collectionId: string): Promise<boolean> => false)
@@ -13,8 +14,11 @@ const mockInsert = mock(
 )
 
 const mockSearch = mock(
-  async (_collectionId: string, _vector: number[], _limit: number): Promise<VectorSearchResult[]> =>
-    []
+  async (
+    _collectionId: string,
+    _vector: number[],
+    _options: RetrievalSearchOptions
+  ): Promise<VectorSearchResult[]> => []
 )
 
 const mockVectorStore: VectorStore = {
@@ -124,7 +128,10 @@ describe('EmbeddingManagementService', () => {
 
       const service = new EmbeddingManagementService(mockVectorStore)
       const embedding: TextEmbedding = { index: 0, text: 'query', vector: [0.1, 0.2] }
-      const results = await service.searchByEmbedding('col-1', { embedding, limit: 2 })
+      const results = await service.searchByEmbedding('col-1', {
+        embedding,
+        retrieval: { filter: undefined, limit: 2 },
+      })
 
       expect(results).toEqual([
         {
@@ -142,18 +149,28 @@ describe('EmbeddingManagementService', () => {
       ])
     })
 
-    it('passes the query vector and limit to vectorStore.search', async () => {
-      mockSearch.mockImplementation(async () => [])
+    it('passes the query vector and retrieval options to vectorStore.search', async () => {
+      let capturedCollectionId: string | undefined
+      let capturedVector: number[] | undefined
+      let capturedOptions: RetrievalSearchOptions | undefined
+
+      mockSearch.mockImplementation(async (collectionId, vector, options) => {
+        capturedCollectionId = collectionId
+        capturedVector = vector
+        capturedOptions = options
+        return []
+      })
 
       const service = new EmbeddingManagementService(mockVectorStore)
       const queryVector = [0.5, 0.6, 0.7]
       const embedding: TextEmbedding = { index: 0, text: 'query', vector: queryVector }
-      await service.searchByEmbedding('col-1', { embedding, limit: 5 })
+      const retrieval: RetrievalSearchOptions = { filter: undefined, limit: 5 }
 
-      const [collectionId, vector, limit] = mockSearch.mock.calls[0]!
-      expect(collectionId).toBe('col-1')
-      expect(vector).toEqual(queryVector)
-      expect(limit).toBe(5)
+      await service.searchByEmbedding('col-1', { embedding, retrieval })
+
+      expect(capturedCollectionId).toBe('col-1')
+      expect(capturedVector).toEqual(queryVector)
+      expect(capturedOptions).toEqual(retrieval)
     })
 
     it('throws when vector payload text is missing', async () => {
@@ -165,7 +182,7 @@ describe('EmbeddingManagementService', () => {
       const embedding: TextEmbedding = { index: 0, text: 'q', vector: [0.1] }
 
       await expect(
-        service.searchByEmbedding('col-1', { embedding, limit: 1 })
+        service.searchByEmbedding('col-1', { embedding, retrieval: { filter: undefined, limit: 1 } })
       ).rejects.toThrow()
     })
   })

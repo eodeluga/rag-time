@@ -2,7 +2,9 @@ import { describe, expect, it } from 'bun:test'
 import { BaseError } from '@/errors/base.error'
 import { ChunkingError } from '@/errors/chunking.error'
 import { EmbeddingError } from '@/errors/embedding.error'
+import { InvalidVectorFilterError } from '@/errors/invalid-vector-filter.error'
 import { PdfParseError } from '@/errors/pdf-parse.error'
+import { UnsupportedVectorFilterOperatorError } from '@/errors/unsupported-vector-filter-operator.error'
 import { VectorStoreError } from '@/errors/vector-store.error'
 
 describe('BaseError', () => {
@@ -82,5 +84,43 @@ describe('VectorStoreError', () => {
 
   it('is an instance of BaseError', () => {
     expect(new VectorStoreError('msg')).toBeInstanceOf(BaseError)
+  })
+})
+
+describe('InvalidVectorFilterError', () => {
+  it('has status 400 and code INVALID_VECTOR_FILTER', () => {
+    const error = new InvalidVectorFilterError('invalid filter')
+    expect(error.status).toBe(400)
+    expect(error.code).toBe('INVALID_VECTOR_FILTER')
+    expect(error.message).toBe('invalid filter')
+  })
+
+  it('accepts optional details', () => {
+    const details = [{ message: 'field required' }]
+    const error = new InvalidVectorFilterError('invalid', details)
+    expect(error.details).toEqual(details)
+  })
+
+  it('is an instance of BaseError', () => {
+    expect(new InvalidVectorFilterError('msg')).toBeInstanceOf(BaseError)
+  })
+})
+
+describe('UnsupportedVectorFilterOperatorError', () => {
+  it('has status 400 and code UNSUPPORTED_VECTOR_FILTER_OPERATOR', () => {
+    const error = new UnsupportedVectorFilterOperatorError('unsupported operator')
+    expect(error.status).toBe(400)
+    expect(error.code).toBe('UNSUPPORTED_VECTOR_FILTER_OPERATOR')
+    expect(error.message).toBe('unsupported operator')
+  })
+
+  it('accepts optional details', () => {
+    const details = { operator: 'regex' }
+    const error = new UnsupportedVectorFilterOperatorError('unsupported', details)
+    expect(error.details).toEqual(details)
+  })
+
+  it('is an instance of BaseError', () => {
+    expect(new UnsupportedVectorFilterOperatorError('msg')).toBeInstanceOf(BaseError)
   })
 })

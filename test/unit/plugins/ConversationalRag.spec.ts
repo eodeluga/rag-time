@@ -33,7 +33,7 @@ const mockStoreInsert = mock(
   })
 )
 const mockStoreSearch = mock(
-  async (_id: string, _v: number[], _l: number): Promise<VectorSearchResult[]> => [
+  async (_id: string, _v: number[], _opts: unknown): Promise<VectorSearchResult[]> => [
     { id: 0, payload: { text: 'relevant context chunk', index: 0 }, score: 0.9 },
   ]
 )

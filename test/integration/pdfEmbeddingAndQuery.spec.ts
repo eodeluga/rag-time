@@ -63,7 +63,7 @@ describe('Tests the embedding of text chunks from PDF and the querying and respo
 
   it('should provide text from multiple documents', async () => {
     const query = 'What is the name of the GPUs I used and what are ways to do key exchange?'
-    const results = await embeddingQueryService.queryCollections(query, embeddingIds, 1)
+    const results = await embeddingQueryService.queryCollections(query, embeddingIds, { filter: undefined, limit: 1 })
     const resultText = results.map((result) => result.text).join()
     expect(resultText).toSatisfy((text) => text.includes('voodoo') && text.includes('ssh'))
   })
