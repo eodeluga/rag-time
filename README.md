@@ -468,7 +468,9 @@ const results = await query.query('What are the indemnity clauses?', embeddingId
 
 Filters use a portable AST that is independent of any specific vector store. The filter is translated into the store's native format at the adapter boundary.
 
-**Scalar operators** — compare a single field against a primitive value:
+**Scalar operators**:
+- `eq`, `ne` compare a field against a primitive value (`boolean | number | string`).
+- `gt`, `gte`, `lt`, `lte` compare a field against a numeric value (`number` only).
 
 | Operator | Meaning |
 |---|---|
@@ -482,6 +484,8 @@ Filters use a portable AST that is independent of any specific vector store. The
 ```ts
 { field: 'score', operator: 'gte', value: 0.8 }
 ```
+
+`RetrievalSearchOptions.limit` must be a positive integer (`1, 2, 3, ...`).
 
 **Inclusion operator** — match any of a list of values:
 
