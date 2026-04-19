@@ -26,7 +26,7 @@ type RankedChunk = {
   reciprocalRankScore: number
 }
 
-abstract class BaseRag {
+export abstract class BaseRag {
   private candidateLimit: number
   private chatProvider: ChatProvider
   private embeddingProcessingService: EmbeddingProcessingService
@@ -222,7 +222,10 @@ abstract class BaseRag {
     const variants = await this.expandQuery(validatedQueryInput.question)
     const rawResults = await Promise.all(
       variants.map((variant) =>
-        this.embeddingQueryService.query(variant, this.embeddingId!, this.candidateLimit)
+        this.embeddingQueryService.query(variant, this.embeddingId!, {
+          filter: undefined,
+          limit: this.candidateLimit,
+        })
       )
     )
 
@@ -273,5 +276,3 @@ abstract class BaseRag {
     return chunks.map((chunk, index) => `[${index + 1}] ${chunk.text}`).join('\n\n')
   }
 }
-
-export { BaseRag }
