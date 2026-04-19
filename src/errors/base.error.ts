@@ -1,4 +1,4 @@
-class BaseError extends Error {
+export class BaseError extends Error {
   code: string
   details?: unknown
   status: number
@@ -12,5 +12,3 @@ class BaseError extends Error {
     this.status = status
   }
 }
-
-export { BaseError }

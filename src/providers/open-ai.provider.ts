@@ -9,7 +9,7 @@ type OpenAIProviderConfig = {
   embeddingModel?: string
 }
 
-class OpenAIProvider implements ChatProvider, EmbeddingProvider {
+export class OpenAIProvider implements ChatProvider, EmbeddingProvider {
   private chatModel: string
   private client: OpenAI
   private embeddingModel: string
@@ -47,5 +47,3 @@ class OpenAIProvider implements ChatProvider, EmbeddingProvider {
     }))
   }
 }
-
-export { OpenAIProvider }

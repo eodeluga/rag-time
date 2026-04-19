@@ -9,7 +9,7 @@ type GeminiProviderConfig = {
   embeddingModel?: string
 }
 
-class GeminiProvider implements ChatProvider, EmbeddingProvider {
+export class GeminiProvider implements ChatProvider, EmbeddingProvider {
   private chatModel: string
   private client: GoogleGenerativeAI
   private embeddingModel: string
@@ -67,5 +67,3 @@ class GeminiProvider implements ChatProvider, EmbeddingProvider {
     }))
   }
 }
-
-export { GeminiProvider }

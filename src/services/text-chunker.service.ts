@@ -3,7 +3,7 @@ import { ChunkingError } from '@/errors/chunking.error'
 import type { ChatProvider } from '@/models/chat-provider.model'
 import type { TextChunk } from '@/models/text-chunk.model'
 
-class TextChunkerService {
+export class TextChunkerService {
   private chatProvider: ChatProvider
 
   constructor(chatProvider: ChatProvider) {
@@ -45,5 +45,3 @@ class TextChunkerService {
     }))
   }
 }
-
-export { TextChunkerService }

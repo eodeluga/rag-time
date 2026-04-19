@@ -17,7 +17,7 @@ type EmbedOpts = {
   metadata?: Metadata
 }
 
-class EmbeddingProcessingService {
+export class EmbeddingProcessingService {
   private embeddingManagementService: EmbeddingManagementService
   private embeddingProvider: EmbeddingProvider
 
@@ -121,5 +121,3 @@ class EmbeddingProcessingService {
     }
   }
 }
-
-export { EmbeddingProcessingService }

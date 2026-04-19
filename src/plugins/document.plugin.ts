@@ -1,7 +1,7 @@
 import { BaseRag } from '@/plugins/base.plugin'
 import type { RetrievedChunk } from '@/models/retrieved-chunk.model'
 
-class DocumentRag extends BaseRag {
+export class DocumentRag extends BaseRag {
   protected override buildSystemPrompt(): string {
     return (
       'You are a document assistant. Answer questions based solely on the provided sources. '
@@ -13,5 +13,3 @@ class DocumentRag extends BaseRag {
     return chunks.map((chunk, index) => `Source [${index + 1}]: ${chunk.text}`).join('\n\n')
   }
 }
-
-export { DocumentRag }

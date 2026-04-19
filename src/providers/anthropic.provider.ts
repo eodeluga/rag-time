@@ -7,7 +7,7 @@ type AnthropicProviderConfig = {
   model?: string
 }
 
-class AnthropicProvider implements ChatProvider {
+export class AnthropicProvider implements ChatProvider {
   private client: Anthropic
   private model: string
 
@@ -48,5 +48,3 @@ class AnthropicProvider implements ChatProvider {
     return firstBlock?.type === 'text' ? firstBlock.text : ''
   }
 }
-
-export { AnthropicProvider }
