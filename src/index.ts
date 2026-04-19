@@ -6,11 +6,20 @@ export type { ChatProvider, CompletionOptions } from '@/models/chat-provider.mod
 export type { EmbeddingProvider, EmbeddingVector } from '@/models/embedding-provider.model'
 
 export type {
+  RetrievalSearchOptions,
+  VectorFilterCondition,
+  VectorFilterPrimitive,
+} from '@/models/vector-filter.model'
+
+export type {
   VectorPoint,
   VectorSearchResult,
   VectorStore,
   VectorStoreInsertResult,
 } from '@/models/vector-store.model'
+
+export { InvalidVectorFilterError } from '@/errors/invalid-vector-filter.error'
+export { UnsupportedVectorFilterOperatorError } from '@/errors/unsupported-vector-filter-operator.error'
 
 export { QdrantVectorStore } from '@/stores/qdrant-vector.store'
 

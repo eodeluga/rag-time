@@ -22,7 +22,7 @@ const mockStoreInsert = mock(
   })
 )
 const mockStoreSearch = mock(
-  async (_id: string, _v: number[], _l: number): Promise<VectorSearchResult[]> => []
+  async (_id: string, _v: number[], _opts: unknown): Promise<VectorSearchResult[]> => []
 )
 
 const mockVectorStore: VectorStore = {

@@ -1,4 +1,5 @@
 import { describe, expect, it, mock, beforeEach } from 'bun:test'
+import { InvalidVectorFilterError } from '@/errors/invalid-vector-filter.error'
 import { VectorStoreError } from '@/errors/vector-store.error'
 
 const mockCollectionExists = mock(async (_id: string) => ({ exists: false }))
@@ -155,7 +156,7 @@ describe('QdrantVectorStore', () => {
       ])
 
       const store = new QdrantVectorStore()
-      const results = await store.search('col-1', [0.1, 0.2], 2)
+      const results = await store.search('col-1', [0.1, 0.2], { filter: undefined, limit: 2 })
 
       expect(results).toHaveLength(2)
       expect(results[0]?.id).toBe(0)
@@ -172,7 +173,7 @@ describe('QdrantVectorStore', () => {
       })
 
       const store = new QdrantVectorStore()
-      await store.search('col-1', [0.5, 0.6], 10)
+      await store.search('col-1', [0.5, 0.6], { filter: undefined, limit: 10 })
 
       const opts = capturedOpts as { limit: number; vector: number[] }
       expect(opts.vector).toEqual([0.5, 0.6])
@@ -181,7 +182,7 @@ describe('QdrantVectorStore', () => {
 
     it('returns empty array when no results found', async () => {
       const store = new QdrantVectorStore()
-      const results = await store.search('col-1', [0.1], 5)
+      const results = await store.search('col-1', [0.1], { filter: undefined, limit: 5 })
 
       expect(results).toEqual([])
     })
@@ -192,7 +193,25 @@ describe('QdrantVectorStore', () => {
       })
 
       const store = new QdrantVectorStore()
-      await expect(store.search('col-1', [0.1], 1)).rejects.toBeInstanceOf(VectorStoreError)
+      await expect(store.search('col-1', [0.1], { filter: undefined, limit: 1 })).rejects.toBeInstanceOf(VectorStoreError)
+    })
+
+    it('throws InvalidVectorFilterError when limit is zero', async () => {
+      const store = new QdrantVectorStore()
+
+      await expect(
+        store.search('col-1', [0.1], { filter: undefined, limit: 0 })
+      ).rejects.toBeInstanceOf(InvalidVectorFilterError)
+      expect(mockSearch.mock.calls).toHaveLength(0)
+    })
+
+    it('throws InvalidVectorFilterError when limit is non-integer', async () => {
+      const store = new QdrantVectorStore()
+
+      await expect(
+        store.search('col-1', [0.1], { filter: undefined, limit: 1.5 })
+      ).rejects.toBeInstanceOf(InvalidVectorFilterError)
+      expect(mockSearch.mock.calls).toHaveLength(0)
     })
   })
 })

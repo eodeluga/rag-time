@@ -1,5 +1,7 @@
 export { BaseError } from '@/errors/base.error'
 export { ChunkingError } from '@/errors/chunking.error'
 export { EmbeddingError } from '@/errors/embedding.error'
+export { InvalidVectorFilterError } from '@/errors/invalid-vector-filter.error'
 export { PdfParseError } from '@/errors/pdf-parse.error'
+export { UnsupportedVectorFilterOperatorError } from '@/errors/unsupported-vector-filter-operator.error'
 export { VectorStoreError } from '@/errors/vector-store.error'

@@ -15,6 +15,7 @@ describe('Tests the embedding of text chunks from PDF and the querying and respo
   let embeddingQueryService: EmbeddingQueryService
   let embeddingId: string | null
   let embeddingIds: string[]
+  let metadataScopedEmbeddingIds: string[]
 
   beforeAll(async () => {
     const provider = new OpenAIProvider({ apiKey: process.env['OPENAI_API_KEY']! })
@@ -25,16 +26,24 @@ describe('Tests the embedding of text chunks from PDF and the querying and respo
     embeddingProcessingService = new EmbeddingProcessingService(provider, mgmtService)
     embeddingQueryService = new EmbeddingQueryService(mgmtService, embeddingProcessingService)
 
-    const pdfPath = 'assets/Sample.pdf';
+    const pdfPath = 'assets/Sample.pdf'
+    const sampleSource = 'sample-doc'
+    const shellSource = 'shell-doc'
 
-    ({ embeddingId } = await embeddingProcessingService.embedPDF(pdfPath, {
+    const sampleEmbeddingResult = await embeddingProcessingService.embedPDF(pdfPath, {
       chunkFn: (text) => chunkerService.chunk(text),
-    }))
+      metadata: { source: sampleSource },
+    })
+    embeddingId = sampleEmbeddingResult.embeddingId
 
-    const pdfs = ['assets/Sample.pdf', 'assets/Secure Secure Shell.pdf']
+    const pdfs = [
+      { filePath: 'assets/Sample.pdf', source: sampleSource },
+      { filePath: 'assets/Secure Secure Shell.pdf', source: shellSource },
+    ]
     const embeddingPromises = await Promise.all(
-      pdfs.map(async (pdf) => embeddingProcessingService.embedPDF(pdf, {
+      pdfs.map(async (pdf) => embeddingProcessingService.embedPDF(pdf.filePath, {
         chunkFn: (text) => chunkerService.chunk(text),
+        metadata: { source: pdf.source },
       }))
     )
 
@@ -42,7 +51,32 @@ describe('Tests the embedding of text chunks from PDF and the querying and respo
       .map(({ embeddingId: id }) => id)
       .filter((id): id is string => id !== null)
 
-    if (embeddingId === null || embeddingIds.length === 0) {
+    const metadataScopedInputs = [
+      {
+        source: 'scope-alpha',
+        text: 'Scoped alpha retrieval content about graphics hardware and retro systems.',
+      },
+      {
+        source: 'scope-beta',
+        text: 'Scoped beta retrieval content about secure shell and cryptographic key exchange.',
+      },
+    ]
+    const metadataScopedEmbeddingPromises = await Promise.all(
+      metadataScopedInputs.map(async (input) => embeddingProcessingService.embedText(input.text, {
+        chunkFn: (text) => chunkerService.chunk(text),
+        metadata: { source: input.source },
+      }))
+    )
+
+    metadataScopedEmbeddingIds = metadataScopedEmbeddingPromises
+      .map(({ embeddingId: id }) => id)
+      .filter((id): id is string => id !== null)
+
+    if (
+      embeddingId === null
+      || embeddingIds.length === 0
+      || metadataScopedEmbeddingIds.length !== metadataScopedInputs.length
+    ) {
       throw new Error('Failed to embed PDF')
     }
   })
@@ -63,8 +97,34 @@ describe('Tests the embedding of text chunks from PDF and the querying and respo
 
   it('should provide text from multiple documents', async () => {
     const query = 'What is the name of the GPUs I used and what are ways to do key exchange?'
-    const results = await embeddingQueryService.queryCollections(query, embeddingIds, 1)
+    const results = await embeddingQueryService.queryCollections(query, embeddingIds, { filter: undefined, limit: 1 })
     const resultText = results.map((result) => result.text).join()
     expect(resultText).toSatisfy((text) => text.includes('voodoo') && text.includes('ssh'))
+  })
+
+  it('should narrow retrieved output when a metadata filter is provided', async () => {
+    const query = 'Show me content about system security and key exchange'
+    const unfilteredResults = await embeddingQueryService.queryCollections(query, metadataScopedEmbeddingIds, {
+      filter: undefined,
+      limit: 1,
+    })
+    const unfilteredSources = new Set(
+      unfilteredResults.map((result) => String(result.metadata['source'] ?? ''))
+    )
+
+    expect(unfilteredSources.has('scope-alpha')).toBeTrue()
+    expect(unfilteredSources.has('scope-beta')).toBeTrue()
+
+    const filteredResults = await embeddingQueryService.queryCollections(query, metadataScopedEmbeddingIds, {
+      filter: {
+        field: 'source',
+        operator: 'eq',
+        value: 'scope-beta',
+      },
+      limit: 2,
+    })
+
+    expect(filteredResults.length).toBeGreaterThan(0)
+    expect(filteredResults.every((result) => result.metadata['source'] === 'scope-beta')).toBeTrue()
   })
 })

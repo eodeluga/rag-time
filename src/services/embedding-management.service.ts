@@ -1,12 +1,13 @@
 import { EmbeddingMetadataValidator } from '@/validators/metadata.validator'
 import { VectorSearchResultValidator } from '@/validators/vector-search-result.validator'
 import type { VectorStore } from '@/models/vector-store.model'
+import type { RetrievalSearchOptions } from '@/models/vector-filter.model'
 import type { Metadata } from '@/models/metadata.model'
 import type { TextEmbedding } from '@/models/text-embedding.model'
 import type { EmbeddingInsertResult } from '@/models/embedding-insert-result.model'
 import type { RetrievedChunk } from '@/models/retrieved-chunk.model'
 
-class EmbeddingManagementService {
+export class EmbeddingManagementService {
   private vectorStore: VectorStore
 
   constructor(vectorStore: VectorStore) {
@@ -41,12 +42,12 @@ class EmbeddingManagementService {
 
   async searchByEmbedding(
     collectionId: string,
-    opts: { embedding: TextEmbedding; limit: number }
+    opts: { embedding: TextEmbedding; retrieval: RetrievalSearchOptions }
   ): Promise<RetrievedChunk[]> {
     const rawResults = await this.vectorStore.search(
       collectionId,
       opts.embedding.vector,
-      opts.limit
+      opts.retrieval
     )
     const validatedResults = rawResults.map((result) => VectorSearchResultValidator.parse(result))
 
@@ -62,5 +63,3 @@ class EmbeddingManagementService {
     })
   }
 }
-
-export { EmbeddingManagementService }

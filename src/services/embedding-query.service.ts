@@ -1,6 +1,7 @@
 import { EmbeddingManagementService } from '@/services/embedding-management.service'
 import { EmbeddingProcessingService } from '@/services/embedding-processing.service'
 import { runWithOptionalConcurrencyLimit } from '@/utils/concurrency.util'
+import type { RetrievalSearchOptions } from '@/models/vector-filter.model'
 import type { RetrievedChunk } from '@/models/retrieved-chunk.model'
 
 type EmbeddingQueryServiceConfig = {
@@ -41,19 +42,23 @@ export class EmbeddingQueryService {
   *
   * @param {string} query - The query string to search for.
   * @param {string} embeddingId - The ID of the collection to query.
-  * @param {number} [limit=1] - The maximum number of results to return.
+  * @param {RetrievalSearchOptions} [retrieval] - Retrieval options (limit defaults to 1, filter defaults to undefined).
   * @returns {Promise<RetrievedChunk[]>} - A promise that resolves to an array of similar items.
   */
-  async query(query: string, embeddingId: string, limit = 1): Promise<RetrievedChunk[]> {
+  async query(
+    query: string,
+    embeddingId: string,
+    retrieval: RetrievalSearchOptions = { filter: undefined, limit: 1 }
+  ): Promise<RetrievedChunk[]> {
     const queryEmbedding = (await this.embeddingProcessingService.createTextEmbedding(query))[0]
-    
+
     if (!queryEmbedding) {
       throw new Error('Embedding is empty')
     }
-    
+
     return this.embeddingManagementService.searchByEmbedding(embeddingId, {
       embedding: queryEmbedding,
-      limit,
+      retrieval,
     })
   }
   
@@ -62,22 +67,26 @@ export class EmbeddingQueryService {
   *
   * @param {string} query - The query string to search for.
   * @param {string[]} embeddingIds - The IDs of the collections to query.
-  * @param {number} [limit=1] - The maximum number of results to return from each collection.
+  * @param {RetrievalSearchOptions} [retrieval] - Retrieval options (limit defaults to 1, filter defaults to undefined).
   * @returns {Promise<RetrievedChunk[]>} - A promise that resolves to an array of similar items from all collections.
   */
-  async queryCollections(query: string, embeddingIds: string[], limit = 1): Promise<RetrievedChunk[]> {
+  async queryCollections(
+    query: string,
+    embeddingIds: string[],
+    retrieval: RetrievalSearchOptions = { filter: undefined, limit: 1 }
+  ): Promise<RetrievedChunk[]> {
     const queryEmbedding = (await this.embeddingProcessingService.createTextEmbedding(query))[0]
-    
+
     if (!queryEmbedding) {
       throw new Error('Embedding is empty')
     }
-    
+
     const results = await runWithOptionalConcurrencyLimit(
       embeddingIds,
       async (embeddingId): Promise<RetrievedChunk[]> =>
         this.embeddingManagementService.searchByEmbedding(embeddingId, {
           embedding: queryEmbedding,
-          limit,
+          retrieval,
         }),
       this.queryCollectionsMaxConcurrency
     )
