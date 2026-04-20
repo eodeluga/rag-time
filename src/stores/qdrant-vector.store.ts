@@ -19,11 +19,25 @@ type QdrantFilter =
   | { key: string; match: { value: boolean | number | string } }
   | { key: string; range: Record<string, number> }
 
+/**
+ * {@link VectorStore} implementation backed by a Qdrant vector database.
+ *
+ * Creates collections on first insert using Cosine similarity. The Qdrant endpoint
+ * is resolved in order from: `config.url` → `QDRANT_URL` environment variable →
+ * `http://localhost:6333`.
+ *
+ * @example
+ * const store = new QdrantVectorStore({ url: 'http://qdrant:6333' })
+ * const rag = new DocumentRag({ vectorStore: store, chatProvider, embeddingProvider })
+ */
 export class QdrantVectorStore implements VectorStore {
   private client: QdrantClient
   private collectionDefaultSegmentNumber: number
   private collectionReplicationFactor: number
 
+  /**
+   * @param {QdrantVectorStoreConfig} [config={}] - Optional connection and collection settings.
+   */
   constructor(config: QdrantVectorStoreConfig = {}) {
     const url = config.url ?? process.env['QDRANT_URL'] ?? 'http://localhost:6333'
     this.client = new QdrantClient({ url })
@@ -73,6 +87,13 @@ export class QdrantVectorStore implements VectorStore {
     }
   }
 
+  /**
+   * Checks whether a named collection exists in Qdrant.
+   *
+   * @param {string} collectionId - Name of the Qdrant collection to check.
+   * @returns {Promise<boolean>} `true` if the collection exists, `false` otherwise.
+   * @throws {VectorStoreError} If the Qdrant request fails.
+   */
   async exists(collectionId: string): Promise<boolean> {
     try {
       const { exists } = await this.client.collectionExists(collectionId)
@@ -82,6 +103,17 @@ export class QdrantVectorStore implements VectorStore {
     }
   }
 
+  /**
+   * Creates a Qdrant collection and upserts the provided vector points.
+   *
+   * The collection is created with Cosine distance. Vector dimensionality is inferred
+   * from `points[0].vector.length` — all points must share the same dimensionality.
+   *
+   * @param {string} collectionId - Name of the collection to create and insert into.
+   * @param {VectorPoint[]} points - Non-empty array of vector points to upsert.
+   * @returns {Promise<VectorStoreInsertResult>} The collection identifier and Qdrant operation status.
+   * @throws {VectorStoreError} If `points` is empty or the Qdrant operation fails.
+   */
   async insert(collectionId: string, points: VectorPoint[]): Promise<VectorStoreInsertResult> {
     if (points.length === 0) {
       throw new VectorStoreError('Cannot insert an empty points array')
@@ -113,6 +145,20 @@ export class QdrantVectorStore implements VectorStore {
     }
   }
 
+  /**
+   * Searches a Qdrant collection for the nearest neighbours of `queryVector`.
+   *
+   * An optional {@link VectorFilterCondition} is translated into a Qdrant filter
+   * payload and applied server-side before scoring candidates.
+   *
+   * @param {string} collectionId - Name of the Qdrant collection to search.
+   * @param {number[]} queryVector - Dense query embedding vector.
+   * @param {RetrievalSearchOptions} options - Maximum result count and optional metadata filter.
+   * @returns {Promise<VectorSearchResult[]>} Scored results in descending similarity order.
+   * @throws {VectorStoreError} If the Qdrant search request fails.
+   * @throws {InvalidVectorFilterError} If `options.filter` fails schema validation.
+   * @throws {UnsupportedVectorFilterOperatorError} If `options.filter` uses an unsupported operator.
+   */
   async search(
     collectionId: string,
     queryVector: number[],

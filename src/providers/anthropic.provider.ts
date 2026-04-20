@@ -7,15 +7,46 @@ type AnthropicProviderConfig = {
   model?: string
 }
 
+/**
+ * Anthropic provider implementing {@link ChatProvider}.
+ *
+ * Wraps the Anthropic Messages API for chat completions using Claude models
+ * (`claude-opus-4-6` by default). Use this as the `chatProvider` in {@link RagConfig}
+ * when using Anthropic for LLM completions.
+ *
+ * Note: Anthropic does not provide an embedding API. Pair with a separate
+ * {@link EmbeddingProvider} (e.g. {@link OpenAIProvider} or {@link GeminiProvider})
+ * for the embedding step.
+ *
+ * @example
+ * const chat = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! })
+ * const embed = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY! })
+ * const rag = new ConversationalRag({ chatProvider: chat, embeddingProvider: embed })
+ */
 export class AnthropicProvider implements ChatProvider {
   private client: Anthropic
   private model: string
 
+  /**
+   * @param {object} config - Provider configuration.
+   * @param {string} config.apiKey - Anthropic API key.
+   * @param {string} [config.model='claude-opus-4-6'] - Claude model identifier.
+   */
   constructor(config: AnthropicProviderConfig) {
     this.client = new Anthropic({ apiKey: config.apiKey })
     this.model = config.model ?? 'claude-opus-4-6'
   }
 
+  /**
+   * Sends messages to the configured Claude model and returns the reply.
+   *
+   * `'system'` role messages are extracted and forwarded as the Anthropic system prompt.
+   * When `jsonMode` is enabled, a JSON instruction is appended to the final user message.
+   *
+   * @param {Message[]} messages - Conversation messages including system, user, and assistant turns.
+   * @param {CompletionOptions} [options] - Optional settings (jsonMode).
+   * @returns {Promise<string>} The model's text response, or an empty string if the response is empty.
+   */
   async complete(messages: Message[], options?: CompletionOptions): Promise<string> {
     const systemContent = messages
       .filter((message) => message.role === 'system')
