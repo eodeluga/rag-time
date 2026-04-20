@@ -26,6 +26,26 @@ type RankedChunk = {
   reciprocalRankScore: number
 }
 
+/**
+ * Abstract base class implementing the core RAG (Retrieval-Augmented Generation) pipeline.
+ *
+ * Provides `ingest()` and `query()` as the primary public API. Override the protected
+ * hook methods to customise prompt construction, context presentation, or query expansion
+ * without altering the pipeline logic.
+ *
+ * For ready-to-use variants see {@link ConversationalRag} and {@link DocumentRag}.
+ *
+ * @example
+ * class MyRag extends BaseRag {
+ *   protected override buildSystemPrompt(): string {
+ *     return 'You are a specialist assistant for internal HR policy.'
+ *   }
+ * }
+ *
+ * const rag = new MyRag({ chatProvider, embeddingProvider })
+ * await rag.ingest('Employee handbook text...')
+ * const { answer, history } = await rag.query('What is the parental leave policy?')
+ */
 export abstract class BaseRag {
   private candidateLimit: number
   private chatProvider: ChatProvider
@@ -38,6 +58,9 @@ export abstract class BaseRag {
 
   protected embeddingId: string | null = null
 
+  /**
+   * @param {RagConfig} config - Full configuration including providers, retrieval tuning, and optional store settings.
+   */
   constructor(config: RagConfig) {
     this.candidateLimit = config.retrieval?.candidateLimit ?? 20
     this.chatProvider = config.chatProvider
@@ -184,6 +207,21 @@ export abstract class BaseRag {
       .map((rankedChunk) => rankedChunk.chunk)
   }
 
+  /**
+   * Ingests text or a PDF buffer, generates embeddings, and stores them in the vector store.
+   *
+   * Only one embedding collection is active per instance. Calling `ingest` again replaces
+   * the active `embeddingId`, switching all subsequent `query` calls to the new content.
+   *
+   * Identical content is deduplicated via content hashing — re-ingesting the same text
+   * skips embedding generation and storage.
+   *
+   * @param {Buffer | string} input - Plain text string or a `Buffer` containing raw PDF file bytes.
+   * @param {Metadata} [metadata] - Optional flat key–value metadata attached to every stored chunk
+   *   (e.g. `{ source: 'report.pdf', author: 'Alice' }`).
+   * @returns {Promise<EmbeddingResult>} Details of the created (or existing) embedding collection.
+   * @throws {EmbeddingError} If the embedding or storage operation fails.
+   */
   async ingest(input: Buffer | string, metadata?: Metadata): Promise<EmbeddingResult> {
     const validatedIngestInput = IngestInputValidator.parse({ input, metadata })
     let text: string
@@ -213,6 +251,22 @@ export abstract class BaseRag {
     return result
   }
 
+  /**
+   * Answers a question using the ingested content as grounding context.
+   *
+   * Pipeline: expand query variants → retrieve candidate chunks from the vector store →
+   * merge and deduplicate via Reciprocal Rank Fusion → rerank → assemble prompt →
+   * call the chat provider.
+   *
+   * Conversation history is automatically compacted when it exceeds `tokenBudget`.
+   * Append `RagResponse.history` to the next call to maintain multi-turn context.
+   *
+   * @param {string} question - The user's question.
+   * @param {Message[]} [history=[]] - Prior conversation turns. Pass `RagResponse.history`
+   *   from previous calls to enable multi-turn dialogue.
+   * @returns {Promise<RagResponse>} The model's answer, the updated history, and the source chunks used.
+   * @throws {Error} If `ingest()` has not been called before `query()`.
+   */
   async query(question: string, history: Message[] = []): Promise<RagResponse> {
     if (!this.embeddingId) {
       throw new Error('No content has been ingested. Call ingest() before query().')

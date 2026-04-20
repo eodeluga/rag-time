@@ -9,17 +9,45 @@ type GeminiProviderConfig = {
   embeddingModel?: string
 }
 
-class GeminiProvider implements ChatProvider, EmbeddingProvider {
+/**
+ * Google Gemini provider implementing both {@link ChatProvider} and {@link EmbeddingProvider}.
+ *
+ * Wraps the Google Generative AI SDK for chat completions (`gemini-1.5-pro` by default)
+ * and text embeddings (`text-embedding-004` by default). Pass an instance of this class
+ * as both `chatProvider` and `embeddingProvider` in {@link RagConfig} to use a single
+ * Google API key for the entire RAG pipeline.
+ *
+ * @example
+ * const provider = new GeminiProvider({ apiKey: process.env.GEMINI_API_KEY! })
+ * const rag = new ConversationalRag({ chatProvider: provider, embeddingProvider: provider })
+ */
+export class GeminiProvider implements ChatProvider, EmbeddingProvider {
   private chatModel: string
   private client: GoogleGenerativeAI
   private embeddingModel: string
 
+  /**
+   * @param {object} config - Provider configuration.
+   * @param {string} config.apiKey - Google Generative AI API key.
+   * @param {string} [config.chatModel='gemini-1.5-pro'] - Gemini chat model identifier.
+   * @param {string} [config.embeddingModel='text-embedding-004'] - Gemini embedding model identifier.
+   */
   constructor(config: GeminiProviderConfig) {
     this.chatModel = config.chatModel ?? 'gemini-1.5-pro'
     this.client = new GoogleGenerativeAI(config.apiKey)
     this.embeddingModel = config.embeddingModel ?? 'text-embedding-004'
   }
 
+  /**
+   * Sends messages to the configured Gemini chat model and returns the reply.
+   *
+   * `'system'` role messages are prepended to the final user prompt. Conversation
+   * history is forwarded as Gemini chat turns.
+   *
+   * @param {Message[]} messages - Conversation messages including system, user, and assistant turns.
+   * @param {CompletionOptions} [options] - Optional settings (jsonMode).
+   * @returns {Promise<string>} The model's text response.
+   */
   async complete(messages: Message[], options?: CompletionOptions): Promise<string> {
     const model = this.client.getGenerativeModel({
       generationConfig: options?.jsonMode
@@ -50,6 +78,12 @@ class GeminiProvider implements ChatProvider, EmbeddingProvider {
     return result.response.text()
   }
 
+  /**
+   * Converts an array of strings into embedding vectors using the configured Gemini model.
+   *
+   * @param {string[]} inputs - Strings to embed.
+   * @returns {Promise<EmbeddingVector[]>} One {@link EmbeddingVector} per input string, in input order.
+   */
   async embed(inputs: string[]): Promise<EmbeddingVector[]> {
     const model = this.client.getGenerativeModel({ model: this.embeddingModel })
     const response = await model.batchEmbedContents({
@@ -67,5 +101,3 @@ class GeminiProvider implements ChatProvider, EmbeddingProvider {
     }))
   }
 }
-
-export { GeminiProvider }

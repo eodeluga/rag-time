@@ -17,10 +17,21 @@ type EmbedOpts = {
   metadata?: Metadata
 }
 
-class EmbeddingProcessingService {
+/**
+ * Handles the generation and storage of text embeddings, including LLM-assisted
+ * chunking, content-hash deduplication, and PDF ingestion.
+ *
+ * Acts as the primary entry point for converting raw text or PDF content into
+ * searchable vector embeddings persisted in a {@link VectorStore}.
+ */
+export class EmbeddingProcessingService {
   private embeddingManagementService: EmbeddingManagementService
   private embeddingProvider: EmbeddingProvider
 
+  /**
+   * @param {EmbeddingProvider} embeddingProvider - Provider used to generate dense embedding vectors.
+   * @param {EmbeddingManagementService} embeddingManagementService - Service used to check existence and persist embeddings.
+   */
   constructor(
     embeddingProvider: EmbeddingProvider,
     embeddingManagementService: EmbeddingManagementService
@@ -36,6 +47,13 @@ class EmbeddingProcessingService {
     })
   }
 
+  /**
+   * Converts one or more text strings into {@link TextEmbedding} records using the configured provider.
+   *
+   * @param {string | string[]} input - A single string or an array of strings to embed.
+   * @returns {Promise<TextEmbedding[]>} One {@link TextEmbedding} per input string, preserving order by `index`.
+   * @throws {EmbeddingError} If the provider returns a vector without a corresponding input text.
+   */
   async createTextEmbedding(input: string | string[]): Promise<TextEmbedding[]> {
     const inputs = Array.isArray(input) ? input : [input]
     const vectors = await this.embeddingProvider.embed(inputs)
@@ -55,6 +73,21 @@ class EmbeddingProcessingService {
     })
   }
 
+  /**
+   * Embeds text and persists the result in the vector store.
+   *
+   * The collection identifier is derived from a SHA-256 hash of the input, so
+   * identical content is deduplicated — repeated calls with the same text skip
+   * the embedding and storage steps entirely.
+   *
+   * @param {string | string[]} text - A single string or array of strings to embed and store.
+   * @param {object} [opts] - Optional embedding options.
+   * @param {Function} [opts.chunkFn] - **Required on first embed.** Splits the text into
+   *   {@link TextChunk}s before embedding. Typically a bound reference to {@link TextChunkerService.chunk}.
+   * @param {Metadata} [opts.metadata] - Optional metadata attached to every stored embedding point.
+   * @returns {Promise<EmbeddingResult>} `embeddingId` (content hash) on success,
+   *   or `null` with an error `message` on failure.
+   */
   async embedText(text: string | string[], opts?: EmbedOpts): Promise<EmbeddingResult> {
     try {
       const textAsString = Array.isArray(text) ? text.join() : text
@@ -103,6 +136,14 @@ class EmbeddingProcessingService {
     }
   }
 
+  /**
+   * Reads a PDF file from disk, extracts its text content, and embeds it via {@link embedText}.
+   *
+   * @param {string} filePath - Absolute or relative path to the PDF file.
+   * @param {object} [opts] - Same options as {@link embedText} (`chunkFn`, `metadata`).
+   * @returns {Promise<EmbeddingResult>} `embeddingId` on success, or `null` with an error `message` on failure.
+   * @throws {PdfParseError} If the file cannot be read from disk or its content cannot be parsed.
+   */
   async embedPDF(filePath: string, opts?: EmbedOpts): Promise<EmbeddingResult> {
     const validatedFilePath = FilePathValidator.parse(filePath)
     let buffer: Buffer
@@ -121,5 +162,3 @@ class EmbeddingProcessingService {
     }
   }
 }
-
-export { EmbeddingProcessingService }

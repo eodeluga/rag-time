@@ -9,24 +9,24 @@ type EmbeddingQueryServiceConfig = {
 }
 
 /**
-* Service for querying embeddings within collections and across multiple collections.
-*
-* This class handles querying a collection based on a given query and embedding ID, as well as performing
-* queries across multiple collections to find similar items.
-*
-* @class
-*/
+ * Queries embedding collections by semantic similarity.
+ *
+ * Converts a query string into an embedding vector and searches one or more
+ * collections for the nearest neighbours. Use {@link query} for a single collection
+ * and {@link queryCollections} to fan out across multiple collections simultaneously.
+ */
 export class EmbeddingQueryService {
   private embeddingManagementService: EmbeddingManagementService
   private embeddingProcessingService: EmbeddingProcessingService
   private queryCollectionsMaxConcurrency: number | undefined
-  
+
   /**
-  * Creates an instance of EmbeddingQueryService.
-  *
-  * @param {EmbeddingManagementService} embeddingManagementService - Service for managing embeddings.
-  * @param {EmbeddingProcessingService} embeddingProcessingService - Service for processing and creating embeddings.
-  */
+   * @param {EmbeddingManagementService} embeddingManagementService - Service for managing and searching embeddings.
+   * @param {EmbeddingProcessingService} embeddingProcessingService - Service for generating query embeddings.
+   * @param {object} [config] - Optional configuration.
+   * @param {number} [config.queryCollectionsMaxConcurrency] - Maximum number of collections queried concurrently
+   *   by {@link queryCollections}. Omit for unlimited concurrency.
+   */
   constructor(
     embeddingManagementService: EmbeddingManagementService,
     embeddingProcessingService: EmbeddingProcessingService,
@@ -36,15 +36,17 @@ export class EmbeddingQueryService {
     this.embeddingProcessingService = embeddingProcessingService
     this.queryCollectionsMaxConcurrency = config?.queryCollectionsMaxConcurrency
   }
-  
+
   /**
-  * Queries a specific collection for items similar to the provided query string.
-  *
-  * @param {string} query - The query string to search for.
-  * @param {string} embeddingId - The ID of the collection to query.
-  * @param {RetrievalSearchOptions} [retrieval] - Retrieval options (limit defaults to 1, filter defaults to undefined).
-  * @returns {Promise<RetrievedChunk[]>} - A promise that resolves to an array of similar items.
-  */
+   * Searches a single embedding collection for chunks semantically similar to `query`.
+   *
+   * @param {string} query - Natural-language query string.
+   * @param {string} embeddingId - Identifier of the collection to search.
+   * @param {RetrievalSearchOptions} [retrieval] - Result limit and optional metadata filter.
+   *   Defaults to `{ limit: 1, filter: undefined }`.
+   * @returns {Promise<RetrievedChunk[]>} Matching chunks sorted by descending similarity score.
+   * @throws {Error} If the query cannot be embedded.
+   */
   async query(
     query: string,
     embeddingId: string,
@@ -61,15 +63,20 @@ export class EmbeddingQueryService {
       retrieval,
     })
   }
-  
+
   /**
-  * Queries multiple collections for items similar to the provided query string.
-  *
-  * @param {string} query - The query string to search for.
-  * @param {string[]} embeddingIds - The IDs of the collections to query.
-  * @param {RetrievalSearchOptions} [retrieval] - Retrieval options (limit defaults to 1, filter defaults to undefined).
-  * @returns {Promise<RetrievedChunk[]>} - A promise that resolves to an array of similar items from all collections.
-  */
+   * Searches multiple embedding collections in parallel and returns a flat result set.
+   *
+   * The query is embedded once and then dispatched to all specified collections concurrently.
+   * Results from all collections are merged into a single array without deduplication or sorting.
+   *
+   * @param {string} query - Natural-language query string.
+   * @param {string[]} embeddingIds - Identifiers of the collections to search.
+   * @param {RetrievalSearchOptions} [retrieval] - Result limit and optional metadata filter applied
+   *   to each collection independently. Defaults to `{ limit: 1, filter: undefined }`.
+   * @returns {Promise<RetrievedChunk[]>} Flat array of matching chunks from all queried collections.
+   * @throws {Error} If the query cannot be embedded.
+   */
   async queryCollections(
     query: string,
     embeddingIds: string[],

@@ -3,13 +3,31 @@ import { ChunkingError } from '@/errors/chunking.error'
 import type { ChatProvider } from '@/models/chat-provider.model'
 import type { TextChunk } from '@/models/text-chunk.model'
 
-class TextChunkerService {
+/**
+ * Uses an LLM to split a body of text into semantically meaningful chunks.
+ *
+ * The underlying model is prompted to produce a JSON array of `{ text, summary }` objects.
+ * Summaries are keyword phrases appended to the chunk text before embedding to boost
+ * retrieval recall.
+ */
+export class TextChunkerService {
   private chatProvider: ChatProvider
 
+  /**
+   * @param {ChatProvider} chatProvider - LLM provider used to perform the chunking operation.
+   */
   constructor(chatProvider: ChatProvider) {
     this.chatProvider = chatProvider
   }
 
+  /**
+   * Splits `text` into semantically coherent chunks using the configured LLM.
+   *
+   * @param {string} text - The body of text to split.
+   * @returns {Promise<TextChunk[]>} An array of {@link TextChunk}s, each with a `text` segment
+   *   and an optional keyword `summary`.
+   * @throws {ChunkingError} If the LLM response cannot be parsed as valid JSON.
+   */
   async chunk(text: string): Promise<TextChunk[]> {
     const response = await this.chatProvider.complete(
       [
@@ -45,5 +63,3 @@ class TextChunkerService {
     }))
   }
 }
-
-export { TextChunkerService }
