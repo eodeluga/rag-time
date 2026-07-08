@@ -17,6 +17,7 @@ LLM providers and vector stores are swappable interfaces. OpenAI, Anthropic, and
 - Embed PDFs and raw text
 - Query single or multiple collections
 - Multi-variant retrieval fusion with source-aware near-duplicate collapse
+- Opt-in observation events for operational telemetry and evaluation datasets
 - Typed error classes for fast, visible failures
 - Full unit test coverage
 
@@ -190,6 +191,12 @@ const rag = new ConversationalRag({
   // Optional reranker stage after retrieval and before truncation
   reranker,
 
+  // Optional observation events. Disabled unless enabled is true.
+  observability: {
+    enabled: true,
+    sink: observationSink,
+  },
+
   tokenBudget: 12000,  // total token cap for assembled prompt (default: 8000)
 })
 ```
@@ -293,6 +300,216 @@ const rag = new ConversationalRag({
   reranker: tokenOverlapReranker,
   vectorStore: new QdrantVectorStore(),
 })
+```
+
+---
+
+## Observability
+
+Observability is disabled by default. When enabled, RAGtime emits append-only observation events that are useful for production runtime monitoring. The framework only surfaces data; it does not score responses, make quality decisions, retry based on observations, derive cost, or change behaviour because of them.
+
+Observation events include:
+
+- stable `eventKey` values such as `rag.query.started`, `rag.query.retrieval.completed`, `rag.query.llm.completed`, `rag.query.completed`, and `rag.ingest.completed`
+- `level` values: `debug`, `info`, `warn`, `error`
+- `stage` values such as `ingest`, `query`, `retrieval`, and `llm`
+- `correlationId` and per-call `operationId`
+- timing fields such as `durationMs`
+- retrieval detail such as candidate counts, source counts, and sources
+- prompt and response on `rag.query.llm.completed` by default
+- provider, model, and token usage on `rag.query.llm.completed` when the chat provider exposes it
+
+Token usage is surfaced as data only. Cost calculation is intentionally left to the application layer because pricing, discounts, routing, tenancy, and billing policy are deployment-specific.
+
+For production, prefer MongoDB or a custom sink over JSON file persistence. Add indexes around the query dimensions you use most often, typically `createdAt`, `correlationId`, `operationId`, `eventKey`, `level`, and `stage`.
+
+### JSON file persistence
+
+Use `JsonFileRagObservationStore` to persist observations to a local JSON array file:
+
+```ts
+import {
+  ConversationalRag,
+  JsonFileRagObservationStore,
+  QdrantVectorStore,
+} from 'rag-time'
+
+const observationStore = new JsonFileRagObservationStore({
+  filePath: '.data/rag-observations.json',
+})
+
+const rag = new ConversationalRag({
+  chatProvider: provider,
+  embeddingProvider: provider,
+  observability: {
+    enabled: true,
+    sink: observationStore,
+  },
+  vectorStore: new QdrantVectorStore(),
+})
+
+await rag.ingest('The Battle of Hastings took place in 1066.')
+await rag.query('When did the Battle of Hastings happen?')
+```
+
+The file remains valid JSON, so it can be inspected directly or imported into tooling. This adapter is best suited to local development, smoke tests, and low-volume debugging rather than high-throughput production traffic.
+
+You can query the file-backed store:
+
+```ts
+const page = await observationStore.getObservations({
+  eventKeyPrefix: 'rag.query.',
+  limit: 50,
+  stage: 'llm',
+  sortDirection: 'desc',
+})
+```
+
+### MongoDB persistence
+
+`MongoRagObservationStore` accepts a MongoDB collection-shaped object. The package does not require the MongoDB driver at runtime unless your application chooses to use it.
+
+```ts
+import { MongoClient } from 'mongodb'
+import {
+  MongoRagObservationStore,
+  type RagObservation,
+} from 'rag-time'
+
+const client = new MongoClient(process.env.MONGODB_URI!)
+await client.connect()
+
+const collection = client
+  .db('observability')
+  .collection<RagObservation>('ragObservations')
+
+const observationStore = new MongoRagObservationStore(collection)
+
+const rag = new ConversationalRag({
+  chatProvider: provider,
+  embeddingProvider: provider,
+  observability: {
+    enabled: true,
+    sink: observationStore,
+  },
+  vectorStore: new QdrantVectorStore(),
+})
+```
+
+The MongoDB adapter also exposes `getObservations(query)` with the same query shape as the JSON file store.
+
+### Custom sinks
+
+Implement `RagObservationSink` to persist observations anywhere else, such as Postgres, S3, Kafka, OpenTelemetry, or a hosted evaluation platform.
+
+```ts
+import type {
+  RagObservation,
+  RagObservationSink,
+} from 'rag-time'
+
+class CustomObservationSink implements RagObservationSink {
+  async append(observation: RagObservation): Promise<void> {
+    await persistObservation(observation)
+  }
+}
+```
+
+The interface is intentionally small:
+
+```ts
+interface RagObservationSink {
+  append(observation: RagObservation): Promise<void>
+}
+```
+
+Observation persistence is best-effort. Sink errors are logged and do not interrupt ingest or query execution.
+
+### Capture controls
+
+Prompt and response are included by default because they are often useful when diagnosing production response issues. In production you should normally combine capture controls with event filters, sampling, payload caps, and a redaction/projection hook.
+
+```ts
+const rag = new ConversationalRag({
+  chatProvider: provider,
+  embeddingProvider: provider,
+  observability: {
+    enabled: true,
+    errorSampleRate: 1,
+    eventKeys: [
+      'rag.query.completed',
+      'rag.query.failed',
+      'rag.query.llm.completed',
+      'rag.query.retrieval.completed',
+    ],
+    excludedEventKeys: [],
+    includePrompt: false,
+    includeResponse: false,
+    includeSources: false,
+    levels: ['info', 'warn', 'error'],
+    maxObservationDataSize: 20_000,
+    maxPromptLength: 8_000,
+    maxResponseLength: 4_000,
+    maxSourceTextLength: 1_000,
+    projectData: ({ data, eventKey, level, message, stage }) => ({
+      eventKey,
+      keys: Object.keys(data ?? {}).sort(),
+      level,
+      message,
+      stage,
+    }),
+    sink: observationStore,
+    successSampleRate: 0.1,
+  },
+  vectorStore: new QdrantVectorStore(),
+})
+```
+
+Control details:
+
+- `levels` keeps only selected observation levels.
+- `eventKeys` keeps only selected event keys.
+- `excludedEventKeys` removes specific event keys even when they are otherwise included.
+- `successSampleRate` applies to `debug` and `info` events.
+- `errorSampleRate` applies to `warn` and `error` events.
+- `maxPromptLength`, `maxResponseLength`, and `maxSourceTextLength` cap large text fields before persistence.
+- `maxObservationDataSize` is a final safety net. If the serialised `data` object is still too large, RAGtime stores a small truncation marker instead.
+- `projectData` supports redaction, field allow-lists, tenancy tags, or transforming observations into the schema expected by your downstream store. Returning `undefined` omits `data` for that observation.
+
+### Provider metadata
+
+Built-in providers expose `provider`, `model`, and token usage through `completeWithMetadata()`. Custom providers can opt in by implementing the optional method:
+
+```ts
+import type {
+  ChatProvider,
+  CompletionOptions,
+  CompletionResult,
+  Message,
+} from 'rag-time'
+
+class CustomChatProvider implements ChatProvider {
+  async complete(messages: Message[], options?: CompletionOptions): Promise<string> {
+    const result = await this.completeWithMetadata(messages, options)
+    return result.content
+  }
+
+  async completeWithMetadata(
+    _messages: Message[],
+    _options?: CompletionOptions
+  ): Promise<CompletionResult> {
+    return {
+      content: 'Answer text',
+      model: 'custom-model-v1',
+      provider: 'custom-provider',
+      usage: {
+        completionTokens: 20,
+        promptTokens: 120,
+        totalTokens: 140,
+      },
+    }
+  }
+}
 ```
 
 ---

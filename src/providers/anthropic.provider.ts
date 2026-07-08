@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
-import type { ChatProvider, CompletionOptions } from '@/models/chat-provider.model'
+import type { ChatProvider, CompletionOptions, CompletionResult } from '@/models/chat-provider.model'
 import type { Message } from '@/models/message.model'
 
 type AnthropicProviderConfig = {
@@ -48,6 +48,18 @@ export class AnthropicProvider implements ChatProvider {
    * @returns {Promise<string>} The model's text response, or an empty string if the response is empty.
    */
   async complete(messages: Message[], options?: CompletionOptions): Promise<string> {
+    const result = await this.completeWithMetadata(messages, options)
+    return result.content
+  }
+
+  /**
+   * Sends messages to Claude and returns the reply with model and token usage metadata.
+   *
+   * @param {Message[]} messages - Conversation messages including system, user, and assistant turns.
+   * @param {CompletionOptions} [options] - Optional settings (jsonMode).
+   * @returns {Promise<CompletionResult>} Completion content plus model and token metadata.
+   */
+  async completeWithMetadata(messages: Message[], options?: CompletionOptions): Promise<CompletionResult> {
     const systemContent = messages
       .filter((message) => message.role === 'system')
       .map((message) => message.content)
@@ -76,6 +88,17 @@ export class AnthropicProvider implements ChatProvider {
     })
 
     const firstBlock = response.content[0]
-    return firstBlock?.type === 'text' ? firstBlock.text : ''
+    return {
+      content: firstBlock?.type === 'text' ? firstBlock.text : '',
+      model: this.model,
+      provider: 'anthropic',
+      usage: response.usage === undefined
+        ? undefined
+        : {
+          completionTokens: response.usage.output_tokens,
+          promptTokens: response.usage.input_tokens,
+          totalTokens: response.usage.input_tokens + response.usage.output_tokens,
+        },
+    }
   }
 }

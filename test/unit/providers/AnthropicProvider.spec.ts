@@ -13,8 +13,18 @@ interface AnthropicMessageArgs {
 }
 
 const mockMessagesCreate = mock(
-  async (_args: AnthropicMessageArgs): Promise<{ content: AnthropicTextBlock[] }> => ({
+  async (_args: AnthropicMessageArgs): Promise<{
+    content: AnthropicTextBlock[]
+    usage?: {
+      input_tokens: number
+      output_tokens: number
+    }
+  }> => ({
     content: [{ text: 'anthropic answer', type: 'text' }],
+    usage: {
+      input_tokens: 11,
+      output_tokens: 5,
+    },
   })
 )
 
@@ -31,6 +41,10 @@ describe('AnthropicProvider', () => {
     mockMessagesCreate.mockReset()
     mockMessagesCreate.mockImplementation(async () => ({
       content: [{ text: 'anthropic answer', type: 'text' as const }],
+      usage: {
+        input_tokens: 11,
+        output_tokens: 5,
+      },
     }))
   })
 
@@ -115,6 +129,22 @@ describe('AnthropicProvider', () => {
 
       const result = await provider.complete([{ content: 'q', role: 'user' }])
       expect(result).toBe('')
+    })
+
+    it('returns model and token usage metadata when requested', async () => {
+      const provider = new AnthropicProvider({ apiKey: 'key', model: 'claude-haiku-4-5-20251001' })
+      const result = await provider.completeWithMetadata([{ content: 'q', role: 'user' }])
+
+      expect(result).toEqual({
+        content: 'anthropic answer',
+        model: 'claude-haiku-4-5-20251001',
+        provider: 'anthropic',
+        usage: {
+          completionTokens: 5,
+          promptTokens: 11,
+          totalTokens: 16,
+        },
+      })
     })
   })
 })

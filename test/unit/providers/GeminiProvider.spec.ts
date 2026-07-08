@@ -15,8 +15,24 @@ interface ModelConfig {
 }
 
 const mockSendMessage = mock(
-  async (_prompt: string): Promise<{ response: { text: () => string } }> => ({
-    response: { text: () => 'gemini answer' },
+  async (_prompt: string): Promise<{
+    response: {
+      text: () => string
+      usageMetadata?: {
+        candidatesTokenCount: number
+        promptTokenCount: number
+        totalTokenCount: number
+      }
+    }
+  }> => ({
+    response: {
+      text: () => 'gemini answer',
+      usageMetadata: {
+        candidatesTokenCount: 6,
+        promptTokenCount: 14,
+        totalTokenCount: 20,
+      },
+    },
   })
 )
 
@@ -53,7 +69,14 @@ describe('GeminiProvider', () => {
     mockGetGenerativeModel.mockReset()
 
     mockSendMessage.mockImplementation(async () => ({
-      response: { text: () => 'gemini answer' },
+      response: {
+        text: () => 'gemini answer',
+        usageMetadata: {
+          candidatesTokenCount: 6,
+          promptTokenCount: 14,
+          totalTokenCount: 20,
+        },
+      },
     }))
     mockStartChat.mockImplementation((_opts) => ({ sendMessage: mockSendMessage }))
     mockBatchEmbedContents.mockImplementation(async (request) => ({
@@ -115,6 +138,22 @@ describe('GeminiProvider', () => {
       expect(chatOpts.history).toHaveLength(2)
       expect(chatOpts.history[0]?.role).toBe('user')
       expect(chatOpts.history[1]?.role).toBe('model')
+    })
+
+    it('returns model and token usage metadata when requested', async () => {
+      const provider = new GeminiProvider({ apiKey: 'key', chatModel: 'gemini-2.0-flash' })
+      const result = await provider.completeWithMetadata([{ content: 'q', role: 'user' }])
+
+      expect(result).toEqual({
+        content: 'gemini answer',
+        model: 'gemini-2.0-flash',
+        provider: 'gemini',
+        usage: {
+          completionTokens: 6,
+          promptTokens: 14,
+          totalTokens: 20,
+        },
+      })
     })
   })
 

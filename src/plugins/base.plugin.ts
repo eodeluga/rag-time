@@ -1,8 +1,15 @@
 import pdfparse from 'pdf-parse-debugging-disabled'
+import { nanoid } from 'nanoid'
 import { EmbeddingProcessingService } from '@/services/embedding-processing.service'
 import { EmbeddingManagementService } from '@/services/embedding-management.service'
 import { EmbeddingQueryService } from '@/services/embedding-query.service'
 import { NoOpRerankerService } from '@/services/no-op-reranker.service'
+import {
+  buildLlmObservationData,
+  buildRetrievalObservationData,
+  createRagObserver,
+  normaliseRagObservabilityConfig,
+} from '@/services/rag-observation.service'
 import { TextChunkerService } from '@/services/text-chunker.service'
 import { QdrantVectorStore } from '@/stores/qdrant-vector.store'
 import { EmbeddingError } from '@/errors/embedding.error'
@@ -18,7 +25,8 @@ import type { EmbeddingResult } from '@/models/embedding-result.model'
 import type { Reranker } from '@/models/reranker.model'
 import type { RetrievedChunk } from '@/models/retrieved-chunk.model'
 import type { TextChunk } from '@/models/text-chunk.model'
-import type { ChatProvider } from '@/models/chat-provider.model'
+import type { ChatProvider, CompletionResult } from '@/models/chat-provider.model'
+import type { RagObservabilityConfig } from '@/models/rag-observation.model'
 
 type RankedChunk = {
   bestScore: number
@@ -51,6 +59,7 @@ export abstract class BaseRag {
   private chatProvider: ChatProvider
   private embeddingProcessingService: EmbeddingProcessingService
   private embeddingQueryService: EmbeddingQueryService
+  private observability?: RagObservabilityConfig
   private reranker: Reranker
   private retrievalLimit: number
   private textChunkerService: TextChunkerService
@@ -64,6 +73,7 @@ export abstract class BaseRag {
   constructor(config: RagConfig) {
     this.candidateLimit = config.retrieval?.candidateLimit ?? 20
     this.chatProvider = config.chatProvider
+    this.observability = config.observability
     this.retrievalLimit = config.retrieval?.limit ?? 5
     this.reranker = config.reranker ?? new NoOpRerankerService()
     this.tokenBudget = config.tokenBudget ?? 8000
@@ -98,6 +108,19 @@ export abstract class BaseRag {
       ...history,
       { content: question, role: 'user' },
     ]
+  }
+
+  private async completeWithMetadata(messages: Message[]): Promise<CompletionResult> {
+    if (this.chatProvider.completeWithMetadata !== undefined) {
+      return this.chatProvider.completeWithMetadata(messages)
+    }
+
+    const content = await this.chatProvider.complete(messages)
+
+    return {
+      content,
+      provider: this.chatProvider.constructor.name,
+    }
   }
 
   private buildPromptInjectionGuardrails(): string {
@@ -223,32 +246,63 @@ export abstract class BaseRag {
    * @throws {EmbeddingError} If the embedding or storage operation fails.
    */
   async ingest(input: Buffer | string, metadata?: Metadata): Promise<EmbeddingResult> {
-    const validatedIngestInput = IngestInputValidator.parse({ input, metadata })
-    let text: string
+    const operationId = nanoid()
+    const observer = createRagObserver(this.observability, operationId)
+    const startedAt = Date.now()
 
-    if (Buffer.isBuffer(validatedIngestInput.input)) {
-      const { text: parsedText } = await pdfparse(validatedIngestInput.input)
-      text = parsedText
-    } else {
-      text = validatedIngestInput.input
+    try {
+      const validatedIngestInput = IngestInputValidator.parse({ input, metadata })
+      let text: string
+
+      await observer.info('rag.ingest.started', 'RAG ingest started.', {
+        inputType: Buffer.isBuffer(validatedIngestInput.input) ? 'pdf-buffer' : 'text',
+        metadata: validatedIngestInput.metadata,
+      }, undefined, 'ingest')
+
+      if (Buffer.isBuffer(validatedIngestInput.input)) {
+        const { text: parsedText } = await pdfparse(validatedIngestInput.input)
+        text = parsedText
+
+        await observer.debug('rag.ingest.pdf_parsed', 'PDF buffer parsed for RAG ingest.', {
+          byteLength: validatedIngestInput.input.byteLength,
+          textLength: text.length,
+        }, undefined, 'ingest')
+      } else {
+        text = validatedIngestInput.input
+      }
+
+      const chunkFn = async (rawText: string): Promise<TextChunk[]> => {
+        const chunks = await this.chunk(rawText)
+        return chunks.map((chunk) => ({ summary: chunk.summary, text: chunk.text }))
+      }
+
+      const result = await this.embeddingProcessingService.embedText(text, {
+        chunkFn,
+        metadata: validatedIngestInput.metadata,
+      })
+
+      if (result.embeddingId === null) {
+        throw new EmbeddingError(result.message ?? 'Embedding failed during ingest.')
+      }
+
+      this.embeddingId = result.embeddingId
+
+      await observer.info('rag.ingest.completed', 'RAG ingest completed.', {
+        durationMs: Date.now() - startedAt,
+        embeddingId: result.embeddingId,
+        textLength: text.length,
+      }, Date.now() - startedAt, 'ingest')
+
+      return result
+    } catch (error) {
+      await observer.error('rag.ingest.failed', 'RAG ingest failed.', {
+        durationMs: Date.now() - startedAt,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+      }, Date.now() - startedAt, 'ingest')
+
+      throw error
     }
-
-    const chunkFn = async (rawText: string): Promise<TextChunk[]> => {
-      const chunks = await this.chunk(rawText)
-      return chunks.map((chunk) => ({ summary: chunk.summary, text: chunk.text }))
-    }
-
-    const result = await this.embeddingProcessingService.embedText(text, {
-      chunkFn,
-      metadata: validatedIngestInput.metadata,
-    })
-
-    if (result.embeddingId === null) {
-      throw new EmbeddingError(result.message ?? 'Embedding failed during ingest.')
-    }
-
-    this.embeddingId = result.embeddingId
-    return result
   }
 
   /**
@@ -268,48 +322,126 @@ export abstract class BaseRag {
    * @throws {Error} If `ingest()` has not been called before `query()`.
    */
   async query(question: string, history: Message[] = []): Promise<RagResponse> {
-    if (!this.embeddingId) {
-      throw new Error('No content has been ingested. Call ingest() before query().')
-    }
+    const operationId = nanoid()
+    const observer = createRagObserver(this.observability, operationId)
+    const observabilityConfig = normaliseRagObservabilityConfig(this.observability)
+    const startedAt = Date.now()
 
-    const validatedQueryInput = QueryInputValidator.parse({ history, question })
-    const variants = await this.expandQuery(validatedQueryInput.question)
-    const rawResults = await Promise.all(
-      variants.map((variant) =>
-        this.embeddingQueryService.query(variant, this.embeddingId!, {
-          filter: undefined,
-          limit: this.candidateLimit,
-        })
+    try {
+      if (!this.embeddingId) {
+        throw new Error('No content has been ingested. Call ingest() before query().')
+      }
+
+      const validatedQueryInput = QueryInputValidator.parse({ history, question })
+
+      await observer.info('rag.query.started', 'RAG query started.', {
+        candidateLimit: this.candidateLimit,
+        embeddingId: this.embeddingId,
+        historyLength: validatedQueryInput.history.length,
+        question: validatedQueryInput.question,
+        questionLength: validatedQueryInput.question.length,
+        retrievalLimit: this.retrievalLimit,
+      }, undefined, 'query')
+
+      const variantStartedAt = Date.now()
+      const variants = await this.expandQuery(validatedQueryInput.question)
+
+      await observer.debug('rag.query.variants.completed', 'RAG query variants prepared.', {
+        durationMs: Date.now() - variantStartedAt,
+        variantCount: variants.length,
+        variants,
+      }, Date.now() - variantStartedAt, 'query')
+
+      const retrievalStartedAt = Date.now()
+      const rawResults = await Promise.all(
+        variants.map((variant) =>
+          this.embeddingQueryService.query(variant, this.embeddingId!, {
+            filter: undefined,
+            limit: this.candidateLimit,
+          })
+        )
       )
-    )
 
-    const mergedAndRankedChunks = this.mergeAndRankVariantResults(rawResults)
-    const rerankedChunks = await this.reranker.rerank(validatedQueryInput.question, mergedAndRankedChunks)
-    const topChunks = rerankedChunks.slice(0, this.retrievalLimit)
+      const mergedAndRankedChunks = this.mergeAndRankVariantResults(rawResults)
+      const rerankedChunks = await this.reranker.rerank(validatedQueryInput.question, mergedAndRankedChunks)
+      const topChunks = rerankedChunks.slice(0, this.retrievalLimit)
+      const retrievalDurationMs = Date.now() - retrievalStartedAt
+      const retrievalData = buildRetrievalObservationData(observabilityConfig, {
+        candidateCount: rawResults.flatMap((resultSet) => resultSet).length,
+        durationMs: retrievalDurationMs,
+        mergedCount: mergedAndRankedChunks.length,
+        rerankedCount: rerankedChunks.length,
+        sourceCount: topChunks.length,
+        sources: observabilityConfig.includeSources ? topChunks : undefined,
+      })
 
-    const context = this.presentContext(topChunks)
-    const systemPrompt = this.buildSystemPrompt()
+      await observer.debug(
+        'rag.query.retrieval.completed',
+        'RAG query retrieval completed.',
+        retrievalData,
+        retrievalDurationMs,
+        'retrieval'
+      )
 
-    const baseTokens = this.countTokens(systemPrompt + context + validatedQueryInput.question)
-    const historyBudget = this.tokenBudget - baseTokens
-    const compacted = await this.compactHistory(validatedQueryInput.history, historyBudget)
+      const context = this.presentContext(topChunks)
+      const systemPrompt = this.buildSystemPrompt()
 
-    const messages = this.assemblePrompt(
-      systemPrompt,
-      context,
-      compacted,
-      validatedQueryInput.question
-    )
-    const answer = await this.chatProvider.complete(messages)
+      const baseTokens = this.countTokens(systemPrompt + context + validatedQueryInput.question)
+      const historyBudget = this.tokenBudget - baseTokens
+      const compacted = await this.compactHistory(validatedQueryInput.history, historyBudget)
 
-    return {
-      answer,
-      history: [
-        ...compacted,
-        { content: validatedQueryInput.question, role: 'user' },
-        { content: answer, role: 'assistant' },
-      ],
-      sources: topChunks,
+      const messages = this.assemblePrompt(
+        systemPrompt,
+        context,
+        compacted,
+        validatedQueryInput.question
+      )
+      const llmStartedAt = Date.now()
+      const completion = await this.completeWithMetadata(messages)
+      const answer = completion.content
+      const llmDurationMs = Date.now() - llmStartedAt
+
+      await observer.info(
+        'rag.query.llm.completed',
+        'RAG query LLM completion finished.',
+        buildLlmObservationData(observabilityConfig, {
+          durationMs: llmDurationMs,
+          model: completion.model,
+          prompt: messages,
+          provider: completion.provider,
+          response: answer,
+          usage: completion.usage,
+        }),
+        llmDurationMs,
+        'llm'
+      )
+
+      const response: RagResponse = {
+        answer,
+        history: [
+          ...compacted,
+          { content: validatedQueryInput.question, role: 'user' },
+          { content: answer, role: 'assistant' },
+        ],
+        sources: topChunks,
+      }
+
+      await observer.info('rag.query.completed', 'RAG query completed.', {
+        answerLength: answer.length,
+        compactedHistoryLength: compacted.length,
+        durationMs: Date.now() - startedAt,
+        sourceCount: topChunks.length,
+      }, Date.now() - startedAt, 'query')
+
+      return response
+    } catch (error) {
+      await observer.error('rag.query.failed', 'RAG query failed.', {
+        durationMs: Date.now() - startedAt,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+      }, Date.now() - startedAt, 'query')
+
+      throw error
     }
   }
 

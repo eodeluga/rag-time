@@ -1,5 +1,5 @@
 import OpenAI from 'openai'
-import type { ChatProvider, CompletionOptions } from '@/models/chat-provider.model'
+import type { ChatProvider, CompletionOptions, CompletionResult } from '@/models/chat-provider.model'
 import type { EmbeddingProvider, EmbeddingVector } from '@/models/embedding-provider.model'
 import type { Message } from '@/models/message.model'
 
@@ -46,6 +46,18 @@ export class OpenAIProvider implements ChatProvider, EmbeddingProvider {
    * @returns {Promise<string>} The model's text response, or an empty string if the response is empty.
    */
   async complete(messages: Message[], options?: CompletionOptions): Promise<string> {
+    const result = await this.completeWithMetadata(messages, options)
+    return result.content
+  }
+
+  /**
+   * Sends messages to OpenAI and returns the reply with model and token usage metadata.
+   *
+   * @param {Message[]} messages - Conversation messages including system, user, and assistant turns.
+   * @param {CompletionOptions} [options] - Optional settings (temperature, topP, jsonMode).
+   * @returns {Promise<CompletionResult>} Completion content plus model and token metadata.
+   */
+  async completeWithMetadata(messages: Message[], options?: CompletionOptions): Promise<CompletionResult> {
     const response = await this.client.chat.completions.create({
       messages: messages.map((message) => ({
         content: message.content,
@@ -57,7 +69,18 @@ export class OpenAIProvider implements ChatProvider, EmbeddingProvider {
       top_p: options?.topP,
     })
 
-    return response.choices[0]?.message.content ?? ''
+    return {
+      content: response.choices[0]?.message.content ?? '',
+      model: this.chatModel,
+      provider: 'openai',
+      usage: response.usage === undefined
+        ? undefined
+        : {
+          completionTokens: response.usage.completion_tokens,
+          promptTokens: response.usage.prompt_tokens,
+          totalTokens: response.usage.total_tokens,
+        },
+    }
   }
 
   /**

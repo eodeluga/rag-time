@@ -1,6 +1,7 @@
 import type { ChatProvider } from '@/models/chat-provider.model'
 import type { EmbeddingProvider } from '@/models/embedding-provider.model'
 import type { QdrantVectorStoreConfig } from '@/models/qdrant-config.model'
+import type { RagObservabilityConfig } from '@/models/rag-observation.model'
 import type { Reranker } from '@/models/reranker.model'
 import type { VectorStore } from '@/models/vector-store.model'
 
@@ -19,6 +20,12 @@ export interface RagConfig {
   chatProvider: ChatProvider
   /** Provider used to generate embedding vectors for ingested text and queries. */
   embeddingProvider: EmbeddingProvider
+  /**
+   * Optional observation event configuration. Disabled by default.
+   *
+   * When enabled, emits append-only RAG lifecycle events to one or more sinks.
+   */
+  observability?: RagObservabilityConfig
   /**
    * Qdrant-specific connection and collection settings.
    * Ignored when `vectorStore` is provided.
