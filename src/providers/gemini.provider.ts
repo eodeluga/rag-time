@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
-import type { ChatProvider, CompletionOptions } from '@/models/chat-provider.model'
+import type { ChatProvider, CompletionOptions, CompletionResult } from '@/models/chat-provider.model'
 import type { EmbeddingProvider, EmbeddingVector } from '@/models/embedding-provider.model'
 import type { Message } from '@/models/message.model'
 
@@ -49,6 +49,18 @@ export class GeminiProvider implements ChatProvider, EmbeddingProvider {
    * @returns {Promise<string>} The model's text response.
    */
   async complete(messages: Message[], options?: CompletionOptions): Promise<string> {
+    const result = await this.completeWithMetadata(messages, options)
+    return result.content
+  }
+
+  /**
+   * Sends messages to Gemini and returns the reply with model and token usage metadata.
+   *
+   * @param {Message[]} messages - Conversation messages including system, user, and assistant turns.
+   * @param {CompletionOptions} [options] - Optional settings (jsonMode).
+   * @returns {Promise<CompletionResult>} Completion content plus model and token metadata.
+   */
+  async completeWithMetadata(messages: Message[], options?: CompletionOptions): Promise<CompletionResult> {
     const model = this.client.getGenerativeModel({
       generationConfig: options?.jsonMode
         ? { responseMimeType: 'application/json' }
@@ -75,7 +87,20 @@ export class GeminiProvider implements ChatProvider, EmbeddingProvider {
 
     const chat = model.startChat({ history })
     const result = await chat.sendMessage(prompt)
-    return result.response.text()
+    const usageMetadata = result.response.usageMetadata
+
+    return {
+      content: result.response.text(),
+      model: this.chatModel,
+      provider: 'gemini',
+      usage: usageMetadata === undefined
+        ? undefined
+        : {
+          completionTokens: usageMetadata.candidatesTokenCount,
+          promptTokens: usageMetadata.promptTokenCount,
+          totalTokens: usageMetadata.totalTokenCount,
+        },
+    }
   }
 
   /**

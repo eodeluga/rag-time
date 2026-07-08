@@ -2,7 +2,12 @@ export { BaseRag } from '@/plugins/base.plugin'
 export { ConversationalRag } from '@/plugins/conversational.plugin'
 export { DocumentRag } from '@/plugins/document.plugin'
 
-export type { ChatProvider, CompletionOptions } from '@/models/chat-provider.model'
+export type {
+  ChatProvider,
+  CompletionOptions,
+  CompletionResult,
+  CompletionUsage,
+} from '@/models/chat-provider.model'
 export type { EmbeddingProvider, EmbeddingVector } from '@/models/embedding-provider.model'
 
 export type {
@@ -51,6 +56,7 @@ export type {
   RagObservationQuery,
   RagObservationSink,
   RagObservationSortDirection,
+  RagObservationStage,
   RagObservationStore,
   RagObservabilityConfig,
   RagObserver,

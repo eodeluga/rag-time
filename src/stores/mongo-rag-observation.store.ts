@@ -72,6 +72,10 @@ export class MongoRagObservationStore implements RagObservationStore {
       filters.push({ operationId: query.operationId })
     }
 
+    if (query.stage !== undefined) {
+      filters.push({ stage: query.stage })
+    }
+
     if (query.cursor !== undefined) {
       const cursorObservations = await this.collection
         .find({ id: query.cursor })

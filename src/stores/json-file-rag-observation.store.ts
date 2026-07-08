@@ -75,6 +75,10 @@ export class JsonFileRagObservationStore implements RagObservationStore {
         return false
       }
 
+      if (query.stage !== undefined && observation.stage !== query.stage) {
+        return false
+      }
+
       if (from !== undefined && createdAt < from) {
         return false
       }

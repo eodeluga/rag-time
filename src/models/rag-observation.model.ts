@@ -4,6 +4,18 @@ type RagObservationLevel = 'debug' | 'error' | 'info' | 'warn'
 
 type RagObservationSortDirection = 'asc' | 'desc'
 
+type RagObservationStage =
+  | 'chunking'
+  | 'embedding'
+  | 'ingest'
+  | 'llm'
+  | 'persistence'
+  | 'prompt'
+  | 'query'
+  | 'rerank'
+  | 'retrieval'
+  | 'validation'
+
 interface RagObservation {
   context?: RagObservationContext
   correlationId: string
@@ -15,6 +27,7 @@ interface RagObservation {
   level: RagObservationLevel
   message: string
   operationId: string
+  stage?: RagObservationStage
 }
 
 interface RagObservationContext {
@@ -26,6 +39,7 @@ interface RagObservationDataProjectionInput {
   eventKey: string
   level: RagObservationLevel
   message: string
+  stage?: RagObservationStage
 }
 
 interface RagObservationInput {
@@ -35,6 +49,7 @@ interface RagObservationInput {
   level: RagObservationLevel
   message: string
   operationId: string
+  stage?: RagObservationStage
 }
 
 interface RagObservationPage {
@@ -52,6 +67,7 @@ interface RagObservationQuery {
   limit: number
   operationId?: string
   sortDirection: RagObservationSortDirection
+  stage?: RagObservationStage
   to?: Date | string
 }
 
@@ -64,10 +80,34 @@ interface RagObservationStore extends RagObservationSink {
 }
 
 interface RagObserver {
-  debug(eventKey: string, message: string, data?: RagObservationData, durationMs?: number): Promise<void>
-  error(eventKey: string, message: string, data?: RagObservationData, durationMs?: number): Promise<void>
-  info(eventKey: string, message: string, data?: RagObservationData, durationMs?: number): Promise<void>
-  warn(eventKey: string, message: string, data?: RagObservationData, durationMs?: number): Promise<void>
+  debug(
+    eventKey: string,
+    message: string,
+    data?: RagObservationData,
+    durationMs?: number,
+    stage?: RagObservationStage
+  ): Promise<void>
+  error(
+    eventKey: string,
+    message: string,
+    data?: RagObservationData,
+    durationMs?: number,
+    stage?: RagObservationStage
+  ): Promise<void>
+  info(
+    eventKey: string,
+    message: string,
+    data?: RagObservationData,
+    durationMs?: number,
+    stage?: RagObservationStage
+  ): Promise<void>
+  warn(
+    eventKey: string,
+    message: string,
+    data?: RagObservationData,
+    durationMs?: number,
+    stage?: RagObservationStage
+  ): Promise<void>
 }
 
 type RagObservationDataProjector = (
@@ -78,11 +118,20 @@ interface RagObservabilityConfig {
   context?: RagObservationContext
   correlationId?: string
   enabled?: boolean
+  errorSampleRate?: number
+  eventKeys?: string[]
+  excludedEventKeys?: string[]
   includePrompt?: boolean
   includeResponse?: boolean
   includeSources?: boolean
+  levels?: RagObservationLevel[]
+  maxObservationDataSize?: number
+  maxPromptLength?: number
+  maxResponseLength?: number
+  maxSourceTextLength?: number
   projectData?: RagObservationDataProjector
   sink?: RagObservationSink | RagObservationSink[]
+  successSampleRate?: number
 }
 
 export type {
@@ -97,6 +146,7 @@ export type {
   RagObservationQuery,
   RagObservationSink,
   RagObservationSortDirection,
+  RagObservationStage,
   RagObservationStore,
   RagObservabilityConfig,
   RagObserver,
