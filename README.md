@@ -17,6 +17,7 @@ LLM providers and vector stores are swappable interfaces. OpenAI, Anthropic, and
 - Embed PDFs and raw text
 - Query single or multiple collections
 - Multi-variant retrieval fusion with source-aware near-duplicate collapse
+- Opt-in observation events for operational telemetry and evaluation datasets
 - Typed error classes for fast, visible failures
 - Full unit test coverage
 
@@ -190,6 +191,12 @@ const rag = new ConversationalRag({
   // Optional reranker stage after retrieval and before truncation
   reranker,
 
+  // Optional observation events. Disabled unless enabled is true.
+  observability: {
+    enabled: true,
+    sink: observationSink,
+  },
+
   tokenBudget: 12000,  // total token cap for assembled prompt (default: 8000)
 })
 ```
@@ -294,6 +301,149 @@ const rag = new ConversationalRag({
   vectorStore: new QdrantVectorStore(),
 })
 ```
+
+---
+
+## Observability
+
+Observability is disabled by default. When enabled, RAGtime emits append-only observation events that are useful for general runtime monitoring and for building evaluation datasets. The framework only surfaces data; it does not score responses, make quality decisions, retry based on observations, or change behaviour because of them.
+
+Observation events include:
+
+- stable `eventKey` values such as `rag.query.started`, `rag.query.retrieval.completed`, `rag.query.llm.completed`, `rag.query.completed`, and `rag.ingest.completed`
+- `level` values: `debug`, `info`, `warn`, `error`
+- `correlationId` and per-call `operationId`
+- timing fields such as `durationMs`
+- retrieval detail such as candidate counts, source counts, and sources
+- prompt and response on `rag.query.llm.completed` by default
+
+### JSON file persistence
+
+Use `JsonFileRagObservationStore` to persist observations to a local JSON array file:
+
+```ts
+import {
+  ConversationalRag,
+  JsonFileRagObservationStore,
+  QdrantVectorStore,
+} from 'rag-time'
+
+const observationStore = new JsonFileRagObservationStore({
+  filePath: '.data/rag-observations.json',
+})
+
+const rag = new ConversationalRag({
+  chatProvider: provider,
+  embeddingProvider: provider,
+  observability: {
+    enabled: true,
+    sink: observationStore,
+  },
+  vectorStore: new QdrantVectorStore(),
+})
+
+await rag.ingest('The Battle of Hastings took place in 1066.')
+await rag.query('When did the Battle of Hastings happen?')
+```
+
+The file remains valid JSON, so it can be inspected directly or imported into eval tooling.
+
+You can query the file-backed store:
+
+```ts
+const page = await observationStore.getObservations({
+  eventKeyPrefix: 'rag.query.',
+  limit: 50,
+  sortDirection: 'desc',
+})
+```
+
+### MongoDB persistence
+
+`MongoRagObservationStore` accepts a MongoDB collection-shaped object. The package does not require the MongoDB driver at runtime unless your application chooses to use it.
+
+```ts
+import { MongoClient } from 'mongodb'
+import {
+  MongoRagObservationStore,
+  type RagObservation,
+} from 'rag-time'
+
+const client = new MongoClient(process.env.MONGODB_URI!)
+await client.connect()
+
+const collection = client
+  .db('observability')
+  .collection<RagObservation>('ragObservations')
+
+const observationStore = new MongoRagObservationStore(collection)
+
+const rag = new ConversationalRag({
+  chatProvider: provider,
+  embeddingProvider: provider,
+  observability: {
+    enabled: true,
+    sink: observationStore,
+  },
+  vectorStore: new QdrantVectorStore(),
+})
+```
+
+The MongoDB adapter also exposes `getObservations(query)` with the same query shape as the JSON file store.
+
+### Custom sinks
+
+Implement `RagObservationSink` to persist observations anywhere else, such as Postgres, S3, Kafka, OpenTelemetry, or a hosted evaluation platform.
+
+```ts
+import type {
+  RagObservation,
+  RagObservationSink,
+} from 'rag-time'
+
+class CustomObservationSink implements RagObservationSink {
+  async append(observation: RagObservation): Promise<void> {
+    await persistObservation(observation)
+  }
+}
+```
+
+The interface is intentionally small:
+
+```ts
+interface RagObservationSink {
+  append(observation: RagObservation): Promise<void>
+}
+```
+
+Observation persistence is best-effort. Sink errors are logged and do not interrupt ingest or query execution.
+
+### Capture controls
+
+Prompt and response are included by default because they are usually the most useful fields for response quality review and eval dataset generation. You can disable them or project the data before persistence.
+
+```ts
+const rag = new ConversationalRag({
+  chatProvider: provider,
+  embeddingProvider: provider,
+  observability: {
+    enabled: true,
+    includePrompt: false,
+    includeResponse: false,
+    includeSources: false,
+    projectData: ({ data, eventKey, level, message }) => ({
+      eventKey,
+      keys: Object.keys(data ?? {}).sort(),
+      level,
+      message,
+    }),
+    sink: observationStore,
+  },
+  vectorStore: new QdrantVectorStore(),
+})
+```
+
+Use `projectData` for redaction, field allow-lists, tenancy tags, or transforming observations into the schema expected by your downstream store. Returning `undefined` omits `data` for that observation.
 
 ---
 
