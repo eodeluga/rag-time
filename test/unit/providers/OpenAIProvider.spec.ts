@@ -14,8 +14,20 @@ interface EmbedCallArgs {
 }
 
 const mockChatCreate = mock(
-  async (_args: ChatCallArgs): Promise<{ choices: { message: { content: string | null } }[] }> => ({
+  async (_args: ChatCallArgs): Promise<{
+    choices: { message: { content: string | null } }[]
+    usage?: {
+      completion_tokens: number
+      prompt_tokens: number
+      total_tokens: number
+    }
+  }> => ({
     choices: [{ message: { content: 'hello from gpt' } }],
+    usage: {
+      completion_tokens: 3,
+      prompt_tokens: 7,
+      total_tokens: 10,
+    },
   })
 )
 
@@ -41,6 +53,11 @@ describe('OpenAIProvider', () => {
 
     mockChatCreate.mockImplementation(async () => ({
       choices: [{ message: { content: 'hello from gpt' } }],
+      usage: {
+        completion_tokens: 3,
+        prompt_tokens: 7,
+        total_tokens: 10,
+      },
     }))
 
     mockEmbedCreate.mockImplementation(async () => ({
@@ -110,6 +127,22 @@ describe('OpenAIProvider', () => {
       const result = await provider.complete([{ content: 'q', role: 'user' }])
 
       expect(result).toBe('')
+    })
+
+    it('returns model and token usage metadata when requested', async () => {
+      const provider = new OpenAIProvider({ apiKey: 'key', chatModel: 'gpt-4o-mini' })
+      const result = await provider.completeWithMetadata([{ content: 'q', role: 'user' }])
+
+      expect(result).toEqual({
+        content: 'hello from gpt',
+        model: 'gpt-4o-mini',
+        provider: 'openai',
+        usage: {
+          completionTokens: 3,
+          promptTokens: 7,
+          totalTokens: 10,
+        },
+      })
     })
   })
 

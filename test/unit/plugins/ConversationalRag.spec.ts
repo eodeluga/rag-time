@@ -1,6 +1,7 @@
 import { describe, expect, it, mock, beforeAll, beforeEach } from 'bun:test'
 import { ConversationalRag } from '@/plugins/conversational.plugin'
 import type { ChatProvider, CompletionOptions } from '@/models/chat-provider.model'
+import type { CompletionResult } from '@/models/chat-provider.model'
 import type { EmbeddingProvider, EmbeddingVector } from '@/models/embedding-provider.model'
 import type { RetrievedChunk } from '@/models/retrieved-chunk.model'
 import type { Reranker } from '@/models/reranker.model'
@@ -416,6 +417,72 @@ describe('ConversationalRag (RagPlugin)', () => {
       expect(llmObservation?.data?.['response']).toBe('The answer is 42.')
     })
 
+    it('emits model and token usage when the chat provider exposes completion metadata', async () => {
+      const { observations, sink } = makeObservationSink()
+      const metadataChatProvider: ChatProvider = {
+        complete: async (_messages, options): Promise<string> => {
+          if (options?.jsonMode) { return chunkJson }
+          return 'fallback answer'
+        },
+        completeWithMetadata: async (_messages): Promise<CompletionResult> => ({
+          content: 'Observed answer.',
+          model: 'test-model',
+          provider: 'test-provider',
+          usage: {
+            completionTokens: 4,
+            promptTokens: 12,
+            totalTokens: 16,
+          },
+        }),
+      }
+      const observedRag = new ConversationalRag({
+        chatProvider: metadataChatProvider,
+        embeddingProvider: mockEmbeddingProvider,
+        observability: {
+          enabled: true,
+          sink,
+        },
+        vectorStore: mockVectorStore,
+      })
+
+      await observedRag.ingest('Context text for metadata observation.')
+      await observedRag.query('Question with metadata observation?')
+
+      const llmObservation = observations.find((observation) =>
+        observation.eventKey === 'rag.query.llm.completed'
+      )
+
+      expect(llmObservation?.data?.['model']).toBe('test-model')
+      expect(llmObservation?.data?.['provider']).toBe('test-provider')
+      expect(llmObservation?.data?.['usage']).toEqual({
+        completionTokens: 4,
+        promptTokens: 12,
+        totalTokens: 16,
+      })
+    })
+
+    it('adds stable stage values to emitted observations', async () => {
+      const { observations, sink } = makeObservationSink()
+      const observedRag = makeRag({
+        observability: {
+          enabled: true,
+          sink,
+        },
+      })
+
+      await observedRag.ingest('Context text for stage observation.')
+      await observedRag.query('Question with stage observation?')
+
+      const stageByEventKey = new Map(
+        observations.map((observation) => [observation.eventKey, observation.stage])
+      )
+
+      expect(stageByEventKey.get('rag.ingest.completed')).toBe('ingest')
+      expect(stageByEventKey.get('rag.query.retrieval.completed')).toBe('retrieval')
+      expect(stageByEventKey.get('rag.query.llm.completed')).toBe('llm')
+      expect(stageByEventKey.get('rag.query.completed')).toBe('query')
+    })
+
     it('allows prompt and response capture to be disabled', async () => {
       const { observations, sink } = makeObservationSink()
       const observedRag = makeRag({
@@ -460,7 +527,123 @@ describe('ConversationalRag (RagPlugin)', () => {
 
       expect(llmObservation?.data).toEqual({
         eventKey: 'rag.query.llm.completed',
-        keys: ['durationMs', 'prompt', 'response', 'responseLength'],
+        keys: ['durationMs', 'prompt', 'provider', 'response', 'responseLength'],
+      })
+    })
+
+    it('filters observations by level and event key', async () => {
+      const { observations, sink } = makeObservationSink()
+      const observedRag = makeRag({
+        observability: {
+          enabled: true,
+          eventKeys: ['rag.query.completed', 'rag.query.llm.completed'],
+          excludedEventKeys: ['rag.query.llm.completed'],
+          levels: ['info'],
+          sink,
+        },
+      })
+
+      await observedRag.ingest('Context text for filtered observation.')
+      await observedRag.query('Question with filtered observation?')
+
+      expect(observations.map((observation) => observation.eventKey)).toEqual(['rag.query.completed'])
+      expect(observations.every((observation) => observation.level === 'info')).toBeTrue()
+    })
+
+    it('samples successful and failed observations independently', async () => {
+      const { observations, sink } = makeObservationSink()
+      const sampledSuccessRag = makeRag({
+        observability: {
+          enabled: true,
+          errorSampleRate: 1,
+          sink,
+          successSampleRate: 0,
+        },
+      })
+      const sampledFailureRag = makeRag({
+        observability: {
+          enabled: true,
+          errorSampleRate: 1,
+          sink,
+          successSampleRate: 0,
+        },
+      })
+
+      await sampledSuccessRag.ingest('Context text for sampled observation.')
+      await sampledSuccessRag.query('Question with sampled observation?')
+      await expect(sampledFailureRag.query('Question before ingest?')).rejects.toThrow(
+        'No content has been ingested'
+      )
+
+      expect(observations.map((observation) => observation.eventKey)).toEqual(['rag.query.failed'])
+      expect(observations[0]?.level).toBe('error')
+    })
+
+    it('caps large prompt response and source payload fields', async () => {
+      mockStoreSearch.mockImplementation(async () => [
+        {
+          id: 0,
+          payload: {
+            text: 'very long source text that should be capped before persistence',
+          },
+          score: 0.9,
+        },
+      ])
+
+      const { observations, sink } = makeObservationSink()
+      const observedRag = makeRag({
+        observability: {
+          enabled: true,
+          maxPromptLength: 24,
+          maxResponseLength: 10,
+          maxSourceTextLength: 12,
+          sink,
+        },
+      })
+
+      await observedRag.ingest('Context text for capped observation.')
+      await observedRag.query('Question with capped observation?')
+
+      const llmObservation = observations.find((observation) =>
+        observation.eventKey === 'rag.query.llm.completed'
+      )
+      const retrievalObservation = observations.find((observation) =>
+        observation.eventKey === 'rag.query.retrieval.completed'
+      )
+      const prompt = llmObservation?.data?.['prompt']
+      const response = llmObservation?.data?.['response']
+      const sources = retrievalObservation?.data?.['sources']
+
+      expect(Array.isArray(prompt)).toBeTrue()
+      expect(typeof response).toBe('string')
+      expect((response as string).length).toBeLessThanOrEqual(10)
+      expect(llmObservation?.data?.['responseTruncated']).toBeTrue()
+      expect(llmObservation?.data?.['promptTruncated']).toBeTrue()
+      expect(Array.isArray(sources)).toBeTrue()
+      expect((sources as RetrievedChunk[])[0]?.text.length).toBeLessThanOrEqual(12)
+      expect(retrievalObservation?.data?.['sourcesTruncated']).toBeTrue()
+    })
+
+    it('caps the full observation data payload when configured', async () => {
+      const { observations, sink } = makeObservationSink()
+      const observedRag = makeRag({
+        observability: {
+          enabled: true,
+          maxObservationDataSize: 10,
+          sink,
+        },
+      })
+
+      await observedRag.ingest('Context text for full payload cap observation.')
+      await observedRag.query('Question with full payload cap observation?')
+
+      const llmObservation = observations.find((observation) =>
+        observation.eventKey === 'rag.query.llm.completed'
+      )
+
+      expect(llmObservation?.data).toEqual({
+        originalSize: expect.any(Number),
+        truncated: true,
       })
     })
 
