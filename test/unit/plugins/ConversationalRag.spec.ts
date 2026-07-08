@@ -7,6 +7,7 @@ import type { Reranker } from '@/models/reranker.model'
 import type { VectorStore, VectorPoint, VectorSearchResult, VectorStoreInsertResult } from '@/models/vector-store.model'
 import type { Message } from '@/models/message.model'
 import type { RagConfig } from '@/models/rag-config.model'
+import type { RagObservation, RagObservationSink } from '@/models/rag-observation.model'
 
 const chunkJson = JSON.stringify({
   chunks: [{ text: 'Historical fact', summary: 'history' }],
@@ -50,6 +51,7 @@ function makeRag(configOverrides?: Partial<RagConfig>) {
   return new ConversationalRag({
     chatProvider: mockChatProvider,
     embeddingProvider: mockEmbeddingProvider,
+    observability: configOverrides?.observability,
     reranker: configOverrides?.reranker,
     vectorStore: mockVectorStore,
   })
@@ -65,9 +67,24 @@ function makeMultiVariantRag(configOverrides?: Partial<RagConfig>) {
   return new MultiVariantConversationalRag({
     chatProvider: mockChatProvider,
     embeddingProvider: mockEmbeddingProvider,
+    observability: configOverrides?.observability,
     reranker: configOverrides?.reranker,
     vectorStore: mockVectorStore,
   })
+}
+
+function makeObservationSink() {
+  const observations: RagObservation[] = []
+  const sink: RagObservationSink = {
+    append: async (observation): Promise<void> => {
+      observations.push(observation)
+    },
+  }
+
+  return {
+    observations,
+    sink,
+  }
 }
 
 describe('ConversationalRag (RagPlugin)', () => {
@@ -362,6 +379,115 @@ describe('ConversationalRag (RagPlugin)', () => {
 
       expect(rerank.mock.calls).toHaveLength(1)
       expect(response.sources[0]?.text).toBe('low score text')
+    })
+
+    it('does not emit observations by default', async () => {
+      const { observations, sink } = makeObservationSink()
+      const observedRag = makeRag({
+        observability: {
+          sink,
+        },
+      })
+
+      await observedRag.ingest('Context text for disabled observation.')
+      await observedRag.query('Question without enabled observation?')
+
+      expect(observations).toHaveLength(0)
+    })
+
+    it('emits query observations with prompt and response by default when enabled', async () => {
+      const { observations, sink } = makeObservationSink()
+      const observedRag = makeRag({
+        observability: {
+          enabled: true,
+          sink,
+        },
+      })
+
+      await observedRag.ingest('Context text for enabled observation.')
+      await observedRag.query('Question with enabled observation?')
+
+      const llmObservation = observations.find((observation) =>
+        observation.eventKey === 'rag.query.llm.completed'
+      )
+
+      expect(llmObservation).toBeDefined()
+      expect(llmObservation?.data?.['prompt']).toBeArray()
+      expect(llmObservation?.data?.['response']).toBe('The answer is 42.')
+    })
+
+    it('allows prompt and response capture to be disabled', async () => {
+      const { observations, sink } = makeObservationSink()
+      const observedRag = makeRag({
+        observability: {
+          enabled: true,
+          includePrompt: false,
+          includeResponse: false,
+          sink,
+        },
+      })
+
+      await observedRag.ingest('Context text for redacted observation.')
+      await observedRag.query('Question with redacted observation?')
+
+      const llmObservation = observations.find((observation) =>
+        observation.eventKey === 'rag.query.llm.completed'
+      )
+
+      expect(llmObservation?.data?.['prompt']).toBeUndefined()
+      expect(llmObservation?.data?.['response']).toBeUndefined()
+    })
+
+    it('allows observation data to be projected before persistence', async () => {
+      const { observations, sink } = makeObservationSink()
+      const observedRag = makeRag({
+        observability: {
+          enabled: true,
+          projectData: ({ data, eventKey }) => ({
+            eventKey,
+            keys: Object.keys(data ?? {}).sort(),
+          }),
+          sink,
+        },
+      })
+
+      await observedRag.ingest('Context text for projected observation.')
+      await observedRag.query('Question with projected observation?')
+
+      const llmObservation = observations.find((observation) =>
+        observation.eventKey === 'rag.query.llm.completed'
+      )
+
+      expect(llmObservation?.data).toEqual({
+        eventKey: 'rag.query.llm.completed',
+        keys: ['durationMs', 'prompt', 'response', 'responseLength'],
+      })
+    })
+
+    it('does not fail the query when an observation sink throws', async () => {
+      const originalConsoleError = console.error
+      const sink: RagObservationSink = {
+        append: async (): Promise<void> => {
+          throw new Error('observation store unavailable')
+        },
+      }
+      const observedRag = makeRag({
+        observability: {
+          enabled: true,
+          sink,
+        },
+      })
+
+      console.error = (): void => { }
+
+      try {
+        await observedRag.ingest('Context text for best effort observation.')
+        const response = await observedRag.query('Question with a failing observation sink?')
+
+        expect(response.answer).toBe('The answer is 42.')
+      } finally {
+        console.error = originalConsoleError
+      }
     })
   })
 })
