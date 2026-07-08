@@ -22,12 +22,15 @@ export { InvalidVectorFilterError } from '@/errors/invalid-vector-filter.error'
 export { UnsupportedVectorFilterOperatorError } from '@/errors/unsupported-vector-filter-operator.error'
 
 export { QdrantVectorStore } from '@/stores/qdrant-vector.store'
+export { JsonFileRagObservationStore } from '@/stores/json-file-rag-observation.store'
+export { MongoRagObservationStore } from '@/stores/mongo-rag-observation.store'
 
 export { EmbeddingManagementService } from '@/services/embedding-management.service'
 export { EmbeddingProcessingService } from '@/services/embedding-processing.service'
 export { EmbeddingQueryService } from '@/services/embedding-query.service'
 export { NoOpRerankerService } from '@/services/no-op-reranker.service'
 export { TextChunkerService } from '@/services/text-chunker.service'
+export { appendRagObservationBestEffort, createRagObserver, noopRagObservationSink } from '@/services/rag-observation.service'
 
 export type { Chunk } from '@/models/chunk.model'
 export type { EmbeddingInsertResult } from '@/models/embedding-insert-result.model'
@@ -36,8 +39,32 @@ export type { Message } from '@/models/message.model'
 export type { Metadata } from '@/models/metadata.model'
 export type { QdrantCollectionConfig, QdrantVectorStoreConfig } from '@/models/qdrant-config.model'
 export type { RagConfig } from '@/models/rag-config.model'
+export type {
+  RagObservation,
+  RagObservationContext,
+  RagObservationData,
+  RagObservationDataProjectionInput,
+  RagObservationDataProjector,
+  RagObservationInput,
+  RagObservationLevel,
+  RagObservationPage,
+  RagObservationQuery,
+  RagObservationSink,
+  RagObservationSortDirection,
+  RagObservationStore,
+  RagObservabilityConfig,
+  RagObserver,
+} from '@/models/rag-observation.model'
 export type { RagResponse } from '@/models/rag-response.model'
 export type { Reranker } from '@/models/reranker.model'
 export type { RetrievedChunk } from '@/models/retrieved-chunk.model'
 export type { TextChunk } from '@/models/text-chunk.model'
 export type { TextEmbedding } from '@/models/text-embedding.model'
+export type {
+  JsonFileRagObservationStoreConfig,
+} from '@/stores/json-file-rag-observation.store'
+export type {
+  MongoObservationCollection,
+  MongoObservationCursor,
+  MongoObservationFilter,
+} from '@/stores/mongo-rag-observation.store'
